@@ -49,6 +49,7 @@ public class ResourcesDataTableConfig : ModuleRules
 						"Enabled": true
 					},
 				 */
+				//"MetasoundEngine" //测试Metasound能否获取SoundWave时使用过
 				// ... add private dependencies that you statically link with here ...	
 			}
             );
