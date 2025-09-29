@@ -3,12 +3,7 @@
 
 #include "Sound/SoundEvent.h"
 
-bool USoundCompare::CompareResult_Implementation(FSoundCompareInfo ThisCompareInfo, FSoundCompareParameter CompareParameter)
+FCC_CompareInfo ISoundEventInteract::GetSoundEventCompareParameter_Implementation(FName SoundEventName)
 {
-	return true;
-}
-
-FSoundCompareParameter ISoundEventInteract::GetSoundEventCompareParameter_Implementation(FName SoundEventName)
-{
-	return FSoundCompareParameter();
+	return FCC_CompareInfo();
 }

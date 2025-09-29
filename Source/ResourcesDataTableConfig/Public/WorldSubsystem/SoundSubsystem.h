@@ -73,7 +73,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 		void ChannelEnd();
 
-	//设置通道内BGM的音量(相乘)
+	/*设置通道内BGM的音量(相乘)
+	* OtherChannelName：被哪个通道影响
+	*/
 	UFUNCTION()
 		void SetChannelVolume(FName OtherChannelName, float Volume);
 
@@ -81,6 +83,17 @@ public:
 	UFUNCTION()
 		void RefreshChannelVolume();
 
+	/*改变BGM通道
+	* OtherChannelName：被哪个通道影响
+	*/
+	UFUNCTION(BlueprintCallable)
+	void ChangeBGMChanel(FName OtherChannelName, FChangeBGMChanelInfo ChangeBGMChanelInfo);
+		
+	/*改变通道暂停播放通道
+	* OtherChannelName：被哪个通道影响
+	*/
+	UFUNCTION(BlueprintCallable)
+	void ChangeChannelPauseState(FName OtherChannelName, bool IsPause = true);
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		FName ChannelName;
@@ -119,6 +132,10 @@ public:
 	//新的音频推送进来的事件
 	UPROPERTY(BlueprintAssignable)
 	FBGMChannelEvent PushNewBGM;
+
+	//使该通道暂停的其他通道
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FName> OtherChannelPause;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSoundSubsystemEvent);
@@ -133,6 +150,7 @@ class RESOURCESDATATABLECONFIG_API USoundSubsystem : public UWorldSubsystem
 public:
 	virtual void Deinitialize() override;
 public:
+	//新增选择表格参数
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "5", DefaultToSelf = "Player"))
 	UAudioComponent* PlaySound_2D(const UObject* WorldContextObject, AActor* Player, FName RowName, FString ResourceNameOrIndex, FGameplayTag SoundTag, bool IsUseParameter = true, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f, USoundConcurrency* ConcurrencySettings = nullptr, bool bPersistAcrossLevelTransition = false, bool bAutoDestroy = true);
 	
@@ -204,8 +222,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 		UUserWidget* GetSubtitlesPanel();
 
-
-
 	//推送BGM通道
 	UFUNCTION(BlueprintCallable)
 		UBGMChannel* PushBGMToChannel(FName RowName, FString ResourceNameOrIndex);
@@ -238,22 +254,12 @@ public:
 
 	//触发声音事件
 	UFUNCTION(BlueprintCallable)
-	void TriggerSoundEvent(FName EventName, FSoundCompareParameter CompareParameter, TArray<UAudioComponent*>& SoundComs, TArray<UBGMChannel*>& BGMChannels);
-
-	//声音事件的比对判断
-	UFUNCTION(BlueprintCallable)
-	bool SoundEventCompare(FSoundCompareInfo& SoundCompareInfo, FSoundCompareParameter& CompareParameter);
+	void TriggerSoundEvent(FName EventName, FCC_CompareInfo CompareParameter, TArray<UAudioComponent*>& SoundComs, TArray<UBGMChannel*>& BGMChannels);
 
 	//声音事件的处理
 	UFUNCTION(BlueprintCallable)
 	void SoundEventProcess(FSoundEventProcess& ProcessInfo, TArray<UAudioComponent*>& SoundComs, TArray<UBGMChannel*>& BGMChannels);
 
-	//声音事件的播放
-	UFUNCTION(BlueprintCallable)
-	TArray<UAudioComponent*> SoundEventPlay(TArray<FResourceProperty_SoundAssetTag>& SoundAssetTag);
-	//声音事件的播放
-	UFUNCTION(BlueprintCallable)
-	TArray<UBGMChannel*> SoundEventPush(TArray<FResourceProperty_SoundAssetTag>& BGMAssetTag);
 	//声音事件的调制处理
 	UFUNCTION(BlueprintCallable)
 	void SoundEventAudioModulation(FSoundEventAudioModulationInfo& ModulationInfo);

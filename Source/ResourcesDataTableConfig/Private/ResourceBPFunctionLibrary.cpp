@@ -140,13 +140,13 @@ void UResourceBPFunctionLibrary::SetParameterFromAudioComponent(UAudioComponent*
 			//给两个Object类型进行赋值
 			if (pair.Value.AudioParameter.ParamType == EAudioParameterType::Object && !pair.Value.AudioParameter.ObjectParam)
 			{
-				pair.Value.AudioParameter.ObjectParam = pair.Value.MyObjectParam.Get();
+				pair.Value.AudioParameter.ObjectParam = pair.Value.MyObjectParam.LoadSynchronous();
 			}
 			else if (pair.Value.AudioParameter.ParamType == EAudioParameterType::ObjectArray && pair.Value.AudioParameter.ArrayObjectParam.Num() == 0)
 			{
 				for (int32 i = 0; i < pair.Value.MyArrayObjectParam.Num(); i++)
 				{
-					pair.Value.AudioParameter.ArrayObjectParam.Add(pair.Value.MyArrayObjectParam[i].Get());
+					pair.Value.AudioParameter.ArrayObjectParam.Add(pair.Value.MyArrayObjectParam[i].LoadSynchronous());
 				}
 			}
 			AudioComponent->SetParameter(MoveTemp(pair.Value.AudioParameter));
@@ -179,13 +179,13 @@ void UResourceBPFunctionLibrary::SetParameterFromAudioComponent_MyAudioParameter
 
 			if (pair.Value.AudioParameter.ParamType == EAudioParameterType::Object && !pair.Value.AudioParameter.ObjectParam)
 			{
-				pair.Value.AudioParameter.ObjectParam = pair.Value.MyObjectParam.Get();
+				pair.Value.AudioParameter.ObjectParam = pair.Value.MyObjectParam.LoadSynchronous();
 			}
 			else if (pair.Value.AudioParameter.ParamType == EAudioParameterType::ObjectArray && pair.Value.AudioParameter.ArrayObjectParam.Num() == 0)
 			{
 				for (int32 i = 0; i < pair.Value.MyArrayObjectParam.Num(); i++)
 				{
-					pair.Value.AudioParameter.ArrayObjectParam.Add(pair.Value.MyArrayObjectParam[i].Get());
+					pair.Value.AudioParameter.ArrayObjectParam.Add(pair.Value.MyArrayObjectParam[i].LoadSynchronous());
 				}
 			}
 			AudioComponent->SetParameter(MoveTemp(pair.Value.AudioParameter));
@@ -327,5 +327,10 @@ bool UResourceBPFunctionLibrary::GetResourceFromString_Sound(FName RowName, FStr
 		}
 	}
 	return false;
+}
+
+USoundWave* UResourceBPFunctionLibrary::GetSoundWaveFromParameters(FSoundParameters SoundParameters)
+{
+	return SoundParameters.GetSoundWaveFromParameter();
 }
 

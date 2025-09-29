@@ -49,4 +49,8 @@ public:
 	static bool GetResourceArray_Sound(FName RowName, TArray<FResourceProperty_SoundInfo>& Value);
 	UFUNCTION(BlueprintPure)
 	static bool GetResourceFromString_Sound(FName RowName, FString ResourceNameOrIndex, FResourceProperty_SoundInfo& Value);
+
+	//根据参数获取一个SoundWave
+	UFUNCTION(BlueprintPure)
+	static USoundWave* GetSoundWaveFromParameters(FSoundParameters SoundParameters);
 };

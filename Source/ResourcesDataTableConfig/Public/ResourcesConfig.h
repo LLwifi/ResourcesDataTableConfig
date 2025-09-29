@@ -76,4 +76,25 @@ public:
 	//声音事件表
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = Sound)
 		TSoftObjectPtr<UDataTable> SoundEventDataTable;
+
+	/*全部音效表
+	* 主要用于FResourceProperty_SoundAssetTag根据行名称寻找确定的音效表
+	*/
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = Sound)
+		TArray<TSoftObjectPtr<UDataTable>> AllSoundDataTable;
+
+	/*全部BGM表
+	* 主要用于FResourceProperty_SoundAssetTag根据行名称寻找确定的音效表
+	*/
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = Sound)
+		TArray<TSoftObjectPtr<UDataTable>> AllBGMDataTable;
+
+	/*一段对话信息表
+	*/
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = Dialogue)
+		TSoftObjectPtr<UDataTable> SectionDialogueInfoDataTable;
+
+	//初始创建的BGM通道
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = Sound)
+	TArray<FName> InitCreateBGMChannelNames;
 };

@@ -55,6 +55,18 @@ public:
 	UFUNCTION(BlueprintCallable)
 	TArray<FResourceProperty_SoundAssetTag> GetAllSoundAssetTags();
 
+	UFUNCTION(BlueprintPure)
+	int32 GetCurPlaySoundResourceIndex();
+
+	UFUNCTION(BlueprintPure)
+	int32 ChangeCurPlaySoundResourceIndex(int32 ChangeValue);
+
+	UFUNCTION(BlueprintPure)
+	int32 AddCurPlaySoundResourceIndex(int32 AddValue);
+public:
+	UPROPERTY()
+	UWorld* World;
+
 	UPROPERTY()
 	USoundSubsystem* SoundSubsystem;
 
@@ -72,12 +84,36 @@ public:
 	FString ResourceNameOrIndex;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", meta = (ExposeOnSpawn = true))
 	TArray<FResourceProperty_SoundAssetTag> SoundAssetTags;
-	//是否随机播放一个声音，该值为flase时将尝试播放SoundAssetTags中的全部声音资产
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", meta = (ExposeOnSpawn = true))
-	bool IsRandomPlayOneSound = true;
 
-	//最终真正应用的名称或者下标，当该值为空时，会使用ResourceNameOrIndex的值
-	//本质上是多一个可以手动输入的版本
+	/*动画通知再次被触发时是否要重新创建音效
+	* 该值为false时，只有在首次播放时会创建后续仅推送表格配置的参数（Parameters）
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", meta = (ExposeOnSpawn = true))
+	bool bNotifyIsSpawn = false;
+	//播放类型
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", meta = (ExposeOnSpawn = true))
+	EPlaySoundResourceType PlaySoundResourceType = EPlaySoundResourceType::ArrayRandom;
+	/*该值根据播放类型的不同进行不同的配置
+	* 权重随机：表示权重
+	* 自定义下标循环：表示下标
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", meta = (EditConditionHides, EditCondition = "PlaySoundResourceType == EPlaySoundResourceType::WeightRandom || PlaySoundResourceType == EPlaySoundResourceType::CustomIndexLoop", ExposeOnSpawn = true))
+	TArray<int32> PlaySoundResourceIntValue;
+	//当前播放的音效资源下标
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 CurPlaySoundResourceIndex = 0;
+#if WITH_EDITORONLY_DATA
+	/*当前播放的音效资源下标
+	* 该值的出现是因为编辑如果运行过会使得运行游戏时，下标会从编辑器上次的位置开始
+	* 该值的存在是给编辑器试听使用的
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 CurPlaySoundResourceIndex_Editor = 0;
+#endif
+
+	/*最终真正应用的名称或者下标，当该值为空时，会使用ResourceNameOrIndex的值
+	* 本质上是多一个可以手动输入的版本
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", meta = (ExposeOnSpawn = true))
 	FString NameOrIndex;
 

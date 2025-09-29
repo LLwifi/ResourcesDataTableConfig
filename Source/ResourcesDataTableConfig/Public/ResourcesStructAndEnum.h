@@ -317,7 +317,7 @@ public:
 		//给两个Object类型进行赋值
 		if (AudioParameter.ParamType == EAudioParameterType::Object && !AudioParameter.ObjectParam)
 		{
-			AudioParameter.ObjectParam = MyObjectParam.Get();
+			AudioParameter.ObjectParam = MyObjectParam.LoadSynchronous();
 		}
 		else if (AudioParameter.ParamType == EAudioParameterType::ObjectArray && AudioParameter.ArrayObjectParam.Num() == 0)
 		{
@@ -325,7 +325,7 @@ public:
 			{
 				if (Obj.IsValid())
 				{
-					AudioParameter.ArrayObjectParam.Add(Obj.Get());
+					AudioParameter.ArrayObjectParam.Add(Obj.LoadSynchronous());
 				}
 			}
 		}
@@ -421,10 +421,33 @@ public:
 		return AudioParameter;
 	}
 
+	//获取参数中的第一个SoundWave
+	USoundWave* GetSoundWaveFromParameter()
+	{
+		for (FAudioParameter& AudioParameter : GetAllAudioParameter())
+		{
+			USoundWave* SoundWave = Cast<USoundWave>(AudioParameter.ObjectParam);
+			if (SoundWave)
+			{
+				return SoundWave;
+			}
+
+			for (TObjectPtr<UObject>& Obj : AudioParameter.ArrayObjectParam)
+			{
+				SoundWave = Cast<USoundWave>(Obj);
+				if (SoundWave)
+				{
+					return SoundWave;
+				}
+			}
+		}
+		return nullptr;
+	}
+
 public:
 	//默认音效参数配置<影响的参数名称，值>
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TMap<FName, FMyAudioParameter> MyAudioParameter;//DefaultAudioParameter;MyAudioParameter
+	TMap<FName, FMyAudioParameter> MyAudioParameter;//DefaultAudioParameter;
 
 	//自定义分类音效参数配置<自定义分组名称，影响的参数组>
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -458,6 +481,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSoftObjectPtr<USoundConcurrency> SoundConcurrency;
 
+	//是否要重载音效的衰减
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSoftObjectPtr<USoundAttenuation> SoundAttenuation;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		FSoundParameters Parameters;
 
@@ -469,6 +496,10 @@ public:
 		bool IsUseSoundWaveSubtitleCue = false;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TArray<FSubtitleCue> SubtitleCue;
+
+	//相关资源
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSoftObjectPtr<UObject> ReferenceObject;
 };
 
 USTRUCT(BlueprintType)
@@ -509,6 +540,14 @@ public:
 		DefaultParameters.SetAudioParameterParamNameOfMapKey();
 	}
 public:
+	//配置用备注
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Tip;
+
+	//相关资源
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<TSoftObjectPtr<UObject>> ReferencesObjects;
+
 	//默认参数结构
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FSoundParameters DefaultParameters;
@@ -547,6 +586,44 @@ public:
 	//资产名称或下标
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FString ResourceNameOrIndex;
+
+#if WITH_EDITORONLY_DATA
+	//行名称对应的数据表
+	UPROPERTY(VisibleAnywhere)
+	TSoftObjectPtr<UDataTable> DataTable;
+
+	//对应的音效资源
+	UPROPERTY(VisibleAnywhere)
+	TSoftObjectPtr<USoundBase> SoundBase;
+
+	//设置的引用资源
+	UPROPERTY(VisibleAnywhere)
+	TSoftObjectPtr<UObject> ReferenceObject;
+#endif
+};
+
+//改变BGM通道的类型
+UENUM(BlueprintType)
+enum class EChangeBGMChanelType :uint8
+{
+	Volume = 0 UMETA(DisplayName = "修改音量（相乘）"),
+	Paused UMETA(DisplayName = "暂停"),
+	PopUp UMETA(DisplayName = "弹出")
+};
+
+//改变BGM通道信息
+USTRUCT(BlueprintType)
+struct FChangeBGMChanelInfo
+{
+	GENERATED_BODY()
+public:
+	//改变BGM通道的类型
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EChangeBGMChanelType ChangeBGMChanelType;
+
+	//影响的其他通道的音量（相乘）
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "ChangeBGMChanelType == EChangeBGMChanelType::Volume"))
+	float Volume = 1.0f;
 };
 
 //切换BGM的处理方式
@@ -591,15 +668,12 @@ public:
 	//是否同时处理其他的全部通道
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bChangeAllChannel = false;
-	//影响的其他通道音量（相乘）=0暂停通道 <0结束通道
+	//同时影响效果
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "bChangeAllChannel"))
-	float OtherAllChannelVolume = -1.0f;
-	/*推送该BGM时影响的其他通道音量（相乘）
-	* Value为0时会暂停目标通道
-	* Value < 0 时会结束目标通道(结束时会根据UResourcesConfig配置的BGMFadeOutTime_2D时长进行淡出)
-	*/
+	FChangeBGMChanelInfo ChangeAllBGMChanelInfo;
+	//推送该BGM时影响的其他通道
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Channel", meta = (EditConditionHides, EditCondition = "!bChangeAllChannel"))
-	TMap<FName, float> OtherChannelVolume;
+	TMap<FName, FChangeBGMChanelInfo> ChannelOtherBGMChanelInfo;
 
 	//播放类型
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -640,6 +714,10 @@ public:
 	//该环境下要设置的混合
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<USoundMix*> SetSoundMix;
+
+	//相关资源
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSoftObjectPtr<UObject> ReferenceObject;
 };
 
 USTRUCT(BlueprintType)
@@ -683,6 +761,14 @@ public:
 		}
 	}
 public:
+	//配置用备注
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Tip;
+
+	//相关资源
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<TSoftObjectPtr<UObject>> ReferencesObjects;
+
 	//默认参数结构
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FSoundParameters DefaultParameters;
@@ -691,5 +777,14 @@ public:
 	TMap<FString, FBGMInfo> BGM;
 };
 
-
+//播放资产的类型
+UENUM(BlueprintType)
+enum class EPlaySoundResourceType :uint8
+{
+	ArrayRandom = 0 UMETA(DisplayName = "数组随机"),
+	WeightRandom UMETA(DisplayName = "权重随机"),
+	ArrayIndexLoop UMETA(DisplayName = "列表循环"),
+	CustomIndexLoop UMETA(DisplayName = "自定义下标循环"),
+	SimultaneouslyPlay UMETA(DisplayName = "同时触发")
+};
 

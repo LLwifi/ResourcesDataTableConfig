@@ -10,6 +10,7 @@
 #include <DetailWidgetRow.h>
 #include "SSearchableComboBox.h"
 #include <PropertyCustomizationHelpers.h>
+#include <Engine/CompositeDataTable.h>
 //#include <Editor/PropertyEditor/Private/UserInterface/PropertyEditor/SPropertyEditorCombo.h>
 
 #define LOCTEXT_NAMESPACE "SoundAssetTagCustomization"
@@ -34,6 +35,12 @@ void ISoundAssetTagCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> 
     RowNameHandle = PropertyHandle->GetChildHandle("RowName");
     ResourceNameOrIndexHandle = PropertyHandle->GetChildHandle("ResourceNameOrIndex");
     SoundTypeHandle = PropertyHandle->GetChildHandle("SoundAssetType");
+    DataTableHandle = PropertyHandle->GetChildHandle("DataTable");
+
+    //对应的数据表
+    TSharedPtr<IPropertyHandle> SoundBaseHandle, ReferenceObjectHandle;
+    SoundBaseHandle = PropertyHandle->GetChildHandle("SoundBase");
+    ReferenceObjectHandle = PropertyHandle->GetChildHandle("ReferenceObject");
     //FName CurRowName;
     //RowNameHandle->GetValue(CurRowName);
     //TSharedPtr<IPropertyHandle> ResourceNameOrIndexHandle = PropertyHandle->GetChildHandle("ResourceNameOrIndex");
@@ -44,67 +51,80 @@ void ISoundAssetTagCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> 
 
     void* ValuePtr;
     PropertyHandle->GetValueData(ValuePtr);
-    if (ValuePtr != nullptr)
+    if (ValuePtr != nullptr)//在动画通知上同时选择两个时会为空
     {
         SoundAssetTag = (FResourceProperty_SoundAssetTag*)ValuePtr;
-    }
 
-    //TSharedPtr<FPropertyEditor> cc;
+        Refresh(RowNames, ResourceNameOrIndexs);
 
-    Refresh(RowNames, ResourceNameOrIndexs);
-
-
-    UEnum* EnumPtr = StaticEnum<ESoundAssetType>();
-    if (EnumPtr) 
-    {
-        for (int32 i = 0; i < EnumPtr->GetMaxEnumValue(); ++i)
+        UEnum* EnumPtr = StaticEnum<ESoundAssetType>();
+        if (EnumPtr)
         {
-            FString DisplayName = EnumPtr->GetNameStringByValue(i);
-            ESoundAssetType SoundAssetType = (ESoundAssetType)EnumPtr->GetValueByIndex(i);
-            Name_Type.Add(DisplayName, SoundAssetType);
-            SoundTypes.Add(MakeShareable(new FString(DisplayName)));
+            for (int32 i = 0; i < EnumPtr->GetMaxEnumValue(); ++i)
+            {
+                FString DisplayName = EnumPtr->GetNameStringByValue(i);
+                ESoundAssetType SoundAssetType = (ESoundAssetType)EnumPtr->GetValueByIndex(i);
+                Name_Type.Add(DisplayName, SoundAssetType);
+                SoundTypes.Add(MakeShareable(new FString(DisplayName)));
+            }
         }
-    }
-       
 
-    //slate
-    ChildBuilder.AddCustomRow(FText())
-        [
-            SNew(SVerticalBox)          
-            + SVerticalBox::Slot()
+
+        //slate
+        ChildBuilder.AddCustomRow(FText())
             [
-                SAssignNew(SearchableComboBox_SoundType, SSearchableComboBox)
-                    .OptionsSource(&SoundTypes)//所有选项
-                    .OnGenerateWidget(this, &ISoundAssetTagCustomization::OnGenerateWidget_SoundType)//每个下拉选项的样式通过函数构造
-                    .OnSelectionChanged(this, &ISoundAssetTagCustomization::OnSelectionChanged_SoundType)//改变选择的回调
+                SNew(SVerticalBox)
+                    + SVerticalBox::Slot()
                     [
-                        SAssignNew(ComboBox_SoundType_Text, STextBlock)
-                            .Text(FText::FromString(EnumPtr->GetNameStringByValue((int32)SoundAssetTag->SoundAssetType)))
+                        SAssignNew(SearchableComboBox_SoundType, SSearchableComboBox)
+                            .OptionsSource(&SoundTypes)//所有选项
+                            .OnGenerateWidget(this, &ISoundAssetTagCustomization::OnGenerateWidget_SoundType)//每个下拉选项的样式通过函数构造
+                            .OnSelectionChanged(this, &ISoundAssetTagCustomization::OnSelectionChanged_SoundType)//改变选择的回调
+                            [
+                                SAssignNew(ComboBox_SoundType_Text, STextBlock)
+                                    .Text(FText::FromString(EnumPtr->GetNameStringByValue((int32)SoundAssetTag->SoundAssetType)))
+                            ]
                     ]
-            ]
-            + SVerticalBox::Slot()
-            [
-                SAssignNew(SearchableComboBox_RowName, SSearchableComboBox)
-                    .OptionsSource(&RowNames)//所有选项
-                    .OnGenerateWidget(this, &ISoundAssetTagCustomization::OnGenerateWidget_RowName)//每个下拉选项的样式通过函数构造
-                    .OnSelectionChanged(this, &ISoundAssetTagCustomization::OnSelectionChanged_RowName)//改变选择的回调
+                    + SVerticalBox::Slot()
                     [
-                        SAssignNew(ComboBox_Name_Text, STextBlock)
-                            .Text(FText::FromString(SoundAssetTag->RowName.ToString()))
+                        SAssignNew(SearchableComboBox_RowName, SSearchableComboBox)
+                            .OptionsSource(&RowNames)//所有选项
+                            .OnGenerateWidget(this, &ISoundAssetTagCustomization::OnGenerateWidget_RowName)//每个下拉选项的样式通过函数构造
+                            .OnSelectionChanged(this, &ISoundAssetTagCustomization::OnSelectionChanged_RowName)//改变选择的回调
+                            [
+                                SAssignNew(ComboBox_Name_Text, STextBlock)
+                                    .Text(FText::FromString(SoundAssetTag->RowName.ToString()))
+                            ]
                     ]
-            ]
-            + SVerticalBox::Slot()
-            [
-                SAssignNew(SearchableComboBox_RNOI, SSearchableComboBox)
-                    .OptionsSource(&ResourceNameOrIndexs)//所有选项
-                    .OnGenerateWidget(this, &ISoundAssetTagCustomization::OnGenerateWidget_RNOI)//每个下拉选项的样式通过函数构造
-                    .OnSelectionChanged(this, &ISoundAssetTagCustomization::OnSelectionChanged_RNOI)//改变选择的回调
+                    + SVerticalBox::Slot()
                     [
-                        SAssignNew(ComboBox_RNOI_Text, STextBlock)
-                            .Text(FText::FromString(SoundAssetTag->ResourceNameOrIndex))
+                        SAssignNew(SearchableComboBox_RNOI, SSearchableComboBox)
+                            .OptionsSource(&ResourceNameOrIndexs)//所有选项
+                            .OnGenerateWidget(this, &ISoundAssetTagCustomization::OnGenerateWidget_RNOI)//每个下拉选项的样式通过函数构造
+                            .OnSelectionChanged(this, &ISoundAssetTagCustomization::OnSelectionChanged_RNOI)//改变选择的回调
+                            [
+                                SAssignNew(ComboBox_RNOI_Text, STextBlock)
+                                    .Text(FText::FromString(SoundAssetTag->ResourceNameOrIndex))
+                            ]
                     ]
-            ]
-        ];
+                    + SVerticalBox::Slot().AutoHeight()
+                    [
+                        SNew(SHorizontalBox)
+                            +SHorizontalBox::Slot().AutoWidth()
+                            [
+                                DataTableHandle->CreatePropertyValueWidget()
+                            ]
+                            + SHorizontalBox::Slot().AutoWidth()
+                            [
+                                SoundBaseHandle->CreatePropertyValueWidget()
+                            ]
+                            + SHorizontalBox::Slot().AutoWidth()
+                            [
+                                ReferenceObjectHandle->CreatePropertyValueWidget()
+                            ]
+                    ]
+            ];
+    }
 }
 
 void ISoundAssetTagCustomization::Refresh(TArray<TSharedPtr<FString>>& AllRowName, TArray<TSharedPtr<FString>>& AllResourceNameOrIndex)
@@ -112,36 +132,90 @@ void ISoundAssetTagCustomization::Refresh(TArray<TSharedPtr<FString>>& AllRowNam
     AllRowName.Empty();
     AllResourceNameOrIndex.Empty();
 
-    UDataTable* DT = nullptr;
+    //ParentTables
+    UDataTable* DataTable = nullptr;
+    TArray<TSoftObjectPtr<UDataTable>> AllDT;
     TArray<FName> DTRowName;
     TArray<FString> SoundResourceName;
     switch (SoundAssetTag->SoundAssetType)
     {
     case ESoundAssetType::Sound:
     {
-        DT = UResourcesConfig::GetInstance()->TypeMaping[EResourceType::Sound].LoadSynchronous();
-        if (DT)
+        DataTable = UResourcesConfig::GetInstance()->TypeMaping[EResourceType::Sound].LoadSynchronous();
+        if (DataTable)
         {
-            FResourceProperty_Sound* ResourceProperty_Sound = DT->FindRow<FResourceProperty_Sound>(SoundAssetTag->RowName, TEXT(""));
+            FResourceProperty_Sound* ResourceProperty_Sound = DataTable->FindRow<FResourceProperty_Sound>(SoundAssetTag->RowName, TEXT(""));
             if (ResourceProperty_Sound)
             {
                 ResourceProperty_Sound->Sound.GenerateKeyArray(SoundResourceName);
+                if(ResourceProperty_Sound->Sound.Contains(SoundAssetTag->ResourceNameOrIndex))
+                {
+                    SoundAssetTag->SoundBase = ResourceProperty_Sound->Sound[SoundAssetTag->ResourceNameOrIndex].Sound;
+                    SoundAssetTag->ReferenceObject = ResourceProperty_Sound->Sound[SoundAssetTag->ResourceNameOrIndex].ReferenceObject;
+                }
+                //如果没找到配置的引用资源，这里使用上层通用配置的首个资源
+                if (!SoundAssetTag->ReferenceObject && ResourceProperty_Sound->ReferencesObjects.IsValidIndex(0))
+                {
+                    SoundAssetTag->ReferenceObject = ResourceProperty_Sound->ReferencesObjects[0];
+                }
             }
-            DTRowName = DT->GetRowNames();
+            DTRowName = DataTable->GetRowNames();
+        }
+
+        //尝试寻找准确的数据表
+        AllDT = UResourcesConfig::GetInstance()->AllSoundDataTable;
+        for (TSoftObjectPtr<UDataTable> DT : AllDT)
+        {
+            if (DT.LoadSynchronous())
+            {
+                FResourceProperty_Sound* ResourceProperty_Sound = DT.LoadSynchronous()->FindRow<FResourceProperty_Sound>(SoundAssetTag->RowName, TEXT(""));
+                if (ResourceProperty_Sound)
+                {
+                    SoundAssetTag->DataTable = DT;
+                    break;
+                }
+            }
         }
         break;
     }
     case ESoundAssetType::BGM:
     {
-        DT = UResourcesConfig::GetInstance()->TypeMaping[EResourceType::BGM].LoadSynchronous();
-        if (DT)
+        DataTable = UResourcesConfig::GetInstance()->TypeMaping[EResourceType::BGM].LoadSynchronous();
+        if (DataTable)
         {
-            FResourceProperty_BGM* ResourceProperty_BGM = DT->FindRow<FResourceProperty_BGM>(SoundAssetTag->RowName, TEXT(""));
+            FResourceProperty_BGM* ResourceProperty_BGM = DataTable->FindRow<FResourceProperty_BGM>(SoundAssetTag->RowName, TEXT(""));
             if (ResourceProperty_BGM)
             {
                 ResourceProperty_BGM->BGM.GenerateKeyArray(SoundResourceName);
+
+                if(ResourceProperty_BGM->BGM.Contains(SoundAssetTag->ResourceNameOrIndex))
+                {
+                    SoundAssetTag->SoundBase = ResourceProperty_BGM->BGM[SoundAssetTag->ResourceNameOrIndex].SoundBase;
+                    SoundAssetTag->ReferenceObject = ResourceProperty_BGM->BGM[SoundAssetTag->ResourceNameOrIndex].ReferenceObject;
+                }
+
+                //如果没找到配置的引用资源，这里使用上层通用配置的首个资源
+                if (!SoundAssetTag->ReferenceObject && ResourceProperty_BGM->ReferencesObjects.IsValidIndex(0))
+                {
+                    SoundAssetTag->ReferenceObject = ResourceProperty_BGM->ReferencesObjects[0];
+                }
             }
-            DTRowName = DT->GetRowNames();
+            DTRowName = DataTable->GetRowNames();
+        }
+
+        //尝试寻找准确的数据表
+        AllDT = UResourcesConfig::GetInstance()->AllSoundDataTable;
+        for (TSoftObjectPtr<UDataTable> DT : AllDT)
+        {
+            if (DT.LoadSynchronous())
+            {
+                FResourceProperty_BGM* ResourceProperty_BGM = DT.LoadSynchronous()->FindRow<FResourceProperty_BGM>(SoundAssetTag->RowName, TEXT(""));
+                if (ResourceProperty_BGM)
+                {
+                    SoundAssetTag->DataTable = DT;
+                    break;
+                }
+            }
         }
         break;
     }
@@ -157,6 +231,13 @@ void ISoundAssetTagCustomization::Refresh(TArray<TSharedPtr<FString>>& AllRowNam
     {
         AllResourceNameOrIndex.Add(MakeShareable(new FString(string)));
     }
+    
+    //如果没找到精确的数据表使用组合数据表
+    if (!SoundAssetTag->DataTable)
+    {
+        SoundAssetTag->DataTable = DataTable;
+    }
+
 }
 
 void ISoundAssetTagCustomization::OnSelectionChanged_SoundType(TSharedPtr<FString> InItem, ESelectInfo::Type InSelectionInfo)
@@ -197,6 +278,8 @@ void ISoundAssetTagCustomization::OnSelectionChanged_RNOI(TSharedPtr<FString> In
     ResourceNameOrIndexHandle->SetValue(FName(*InItem.Get()));
     ComboBox_RNOI_Text->SetText(FText::FromString(*InItem));
     SoundAssetTag->ResourceNameOrIndex = *InItem.Get();
+
+    Refresh(RowNames, ResourceNameOrIndexs);
 }
 
 TSharedRef<SWidget> ISoundAssetTagCustomization::OnGenerateWidget_RNOI(TSharedPtr<FString> InItem)

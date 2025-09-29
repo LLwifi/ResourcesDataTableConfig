@@ -60,7 +60,8 @@ public:
     TSharedPtr<class SSearchableComboBox> SearchableComboBox_RNOI;
     TSharedPtr<class STextBlock> ComboBox_RNOI_Text;
 
-
+    //对应的数据表
+    TSharedPtr<IPropertyHandle> DataTableHandle;
 
     //反射出来的结构体数据
     FResourceProperty_SoundAssetTag* SoundAssetTag;

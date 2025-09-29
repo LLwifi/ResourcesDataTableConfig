@@ -25,7 +25,7 @@ UPlaySoundResource::UPlaySoundResource()
 {
 	VolumeMultiplier = 1.f;
 	PitchMultiplier = 1.f;
-
+	CurPlaySoundResourceIndex = 0;
 #if WITH_EDITORONLY_DATA
 	NotifyColor = FColor(196, 142, 255, 255);
 #endif // WITH_EDITORONLY_DATA
@@ -90,112 +90,170 @@ void UPlaySoundResource::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceB
  {
 	Super::Notify(MeshComp, Animation, EventReference);
 
-	//AActor* OwnerActor = MeshComp->GetOwner();
-	//ENetRole Net = OwnerActor->GetLocalRole();
-
-	//if (MeshComp->GetOwner()->GetLocalRole() == ENetRole::ROLE_Authority)
-	//{
-	//	return;
-	//}
-
  	PRAGMA_DISABLE_DEPRECATION_WARNINGS
      Notify(MeshComp, Animation);
  	PRAGMA_ENABLE_DEPRECATION_WARNINGS
- 	// Don't call super to avoid call back in to blueprints
- 	if (GetSound() && MeshComp)
- 	{
- 		if (!GetSound()->IsOneShot())
- 		{
- 			UE_LOG(LogAudio, Warning, TEXT("PlaySound notify: Anim %s tried to play a sound asset which is not a one-shot: '%s'. Spawning suppressed."), *GetNameSafe(Animation), *GetNameSafe(GetSound()));
- 			return;
- 		}
 
- 		UWorld* World = MeshComp->GetWorld();
+	World = MeshComp->GetWorld();
+	//不知道为什么服务器触发下面的逻辑会导致CurPlaySoundResourceIndex被运行2次，这里屏蔽一下服务器的执行
+ 	if (World && (World->WorldType != EWorldType::EditorPreview ? !UKismetSystemLibrary::IsServer(World) : true))
+ 	{
 		TArray<FResourceProperty_SoundAssetTag> UseSoundAssetTags = GetAllSoundAssetTags();
-		if (IsRandomPlayOneSound)
+		if (UseSoundAssetTags.Num() > 0)
 		{
-			FResourceProperty_SoundAssetTag SoundAssetTag = UseSoundAssetTags[UKismetMathLibrary::RandomIntegerInRange(0, UseSoundAssetTags.Num() - 1)];
-			UseSoundAssetTags.Empty();
-			UseSoundAssetTags.Add(SoundAssetTag);
+			FResourceProperty_SoundAssetTag SoundAssetTag;
+			switch (PlaySoundResourceType)
+			{
+			case EPlaySoundResourceType::ArrayRandom:
+			{
+				SoundAssetTag = UseSoundAssetTags[UKismetMathLibrary::RandomIntegerInRange(0, UseSoundAssetTags.Num() - 1)];
+				UseSoundAssetTags.Empty();
+				UseSoundAssetTags.Add(SoundAssetTag);
+				break;
+			}
+			case EPlaySoundResourceType::WeightRandom:
+			{
+				int32 MaxValue = 0;
+				for (int32 i : PlaySoundResourceIntValue)
+				{
+					MaxValue += i;
+				}
+				int32 RandomValue = UKismetMathLibrary::RandomIntegerInRange(0, MaxValue);
+				int32 LastValue = 0;
+				for (int32 i = 0; i < PlaySoundResourceIntValue.Num(); i++)
+				{
+					if (RandomValue >= LastValue && RandomValue <= LastValue + PlaySoundResourceIntValue[i])
+					{
+						LastValue = i;
+						break;
+					}
+					LastValue += PlaySoundResourceIntValue[i];
+				}
+				SoundAssetTag = UseSoundAssetTags[LastValue];
+				UseSoundAssetTags.Empty();
+				UseSoundAssetTags.Add(SoundAssetTag);
+				break;
+			}
+			case EPlaySoundResourceType::ArrayIndexLoop:
+			{
+				SoundAssetTag = UseSoundAssetTags[GetCurPlaySoundResourceIndex()];
+				AddCurPlaySoundResourceIndex(1);
+				if (GetCurPlaySoundResourceIndex() >= UseSoundAssetTags.Num())
+				{
+					ChangeCurPlaySoundResourceIndex(0);
+				}
+				UseSoundAssetTags.Empty();
+				UseSoundAssetTags.Add(SoundAssetTag);
+				break;
+			}
+			case EPlaySoundResourceType::CustomIndexLoop:
+			{
+				SoundAssetTag = UseSoundAssetTags[PlaySoundResourceIntValue[GetCurPlaySoundResourceIndex()]];
+				AddCurPlaySoundResourceIndex(1);
+				if (GetCurPlaySoundResourceIndex() >= PlaySoundResourceIntValue.Num())
+				{
+					ChangeCurPlaySoundResourceIndex(0);
+				}
+				UseSoundAssetTags.Empty();
+				UseSoundAssetTags.Add(SoundAssetTag);
+				break;
+			}
+			case EPlaySoundResourceType::SimultaneouslyPlay:
+			{
+				//同时播放无需处理
+				break;
+			}
+			default:
+				break;
+			}
 		}
-		TArray<UAudioComponent*> NewSoundComponent;
+
+		//for (UAudioComponent* AudioCom : SoundComponent)
+		//{
+		//	if (AudioCom)
+		//	{
+		//		AudioCom->Stop();
+		//	}
+		//}
+		//SoundComponent.Empty();
+
+		//if (bNotifyIsSpawn)
+		//{
+		//	for (UAudioComponent* AudioCom : SoundComponent)
+		//	{
+		//		if (AudioCom)
+		//		{
+		//			AudioCom->Stop();
+		//		}
+		//	}
+		//	SoundComponent.Empty();
+		//}
 
  #if WITH_EDITORONLY_DATA
- 		if (World && World->WorldType == EWorldType::EditorPreview)
+ 		if (World->WorldType == EWorldType::EditorPreview)
  		{
+			SoundComponent.Empty();
 			for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
 			{
-				NewSoundComponent.Add(UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), VolumeMultiplier, PitchMultiplier));
+				UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), VolumeMultiplier, PitchMultiplier);
+				SoundComponent.Add(AudioComponent);
+				SetParameter(AudioComponent, UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex);
 			}
+			//if (bNotifyIsSpawn)
+			//{
+			//	for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
+			//	{
+			//		UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), VolumeMultiplier, PitchMultiplier);
+			//		NewSoundComponent.Add(AudioComponent);
+			//		SetParameter(AudioComponent, UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex);
+			//	}
+			//}
+			//else
+			//{
+			//	for (int32 i = 0; i < SoundComponent.Num(); i++)
+			//	{
+			//		SetParameter(SoundComponent[i], UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex);
+			//	}
+			//}
  		}
  		else
  #endif
  		{
  			if (bFollow)
  			{
- 				if (World && World->HasBegunPlay())
- 				{
-					NewSoundComponent = GetSoundSubsystem()->PlaySound_Attached_Array(MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp, IsRandomPlayOneSound, !UseAnimNotifyParameter, AttachName, FVector(ForceInit), FRotator(), EAttachLocation::SnapToTarget, false, VolumeMultiplier, PitchMultiplier);
- 				}
- 				else
- 				{
-					for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
-					{
-						NewSoundComponent.Add(UGameplayStatics::SpawnSoundAttached(GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), MeshComp, AttachName, FVector(ForceInit), EAttachLocation::SnapToTarget, false, VolumeMultiplier, PitchMultiplier));
-					}
- 				}
- 			}
+				SoundComponent = GetSoundSubsystem()->PlaySound_Attached_Array(MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp, PlaySoundResourceType != EPlaySoundResourceType::SimultaneouslyPlay, !UseAnimNotifyParameter, AttachName, FVector(ForceInit), FRotator(), EAttachLocation::SnapToTarget, false, VolumeMultiplier, PitchMultiplier);
+
+			}
  			else
  			{
- 				if (World && World->HasBegunPlay())
- 				{
-					NewSoundComponent = GetSoundSubsystem()->PlaySound_Location_Array(MeshComp->GetWorld(), MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp->GetComponentLocation(), IsRandomPlayOneSound, !UseAnimNotifyParameter, FRotator(), VolumeMultiplier, PitchMultiplier);
- 				}
- 				else
- 				{
-					for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
-					{
-						NewSoundComponent.Add(UGameplayStatics::SpawnSoundAtLocation(MeshComp->GetWorld(), GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), MeshComp->GetComponentLocation(), FRotator::ZeroRotator, VolumeMultiplier, PitchMultiplier));
-					}
- 				}
+				SoundComponent = GetSoundSubsystem()->PlaySound_Location_Array(World, MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp->GetComponentLocation(), PlaySoundResourceType != EPlaySoundResourceType::SimultaneouslyPlay, !UseAnimNotifyParameter, FRotator(), VolumeMultiplier, PitchMultiplier);
  			}
  		}
-
-		bool NewSoundComponentIsNull = true;
-		for (int32 i = 0; i < NewSoundComponent.Num(); i++)
-		{
-			if (NewSoundComponent[i])
-			{
-				NewSoundComponentIsNull = false;
-				SetParameter(NewSoundComponent[i], UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex);
-			}
-		}
-
-		if (!NewSoundComponentIsNull)
-		{
-			for (int32 i = 0; i < SoundComponent.Num(); i++)
-			{
-				if (SoundComponent[i])
-				{
-					SoundComponent[i]->Stop();
-				}
-			}
-			SoundComponent.Empty();
-			SoundComponent = NewSoundComponent;
-		}
  	}
  }
 
 FString UPlaySoundResource::GetNotifyName_Implementation() const
 {
-	FResourceProperty_SoundInfo SoftSound;
-	FString FindName = NameOrIndex.IsEmpty() ? ResourceNameOrIndex : NameOrIndex;
-	if (UResourceBPFunctionLibrary::GetResourceFromString_Sound(RowName, FindName,SoftSound))
+	if (SoundAssetTags.Num() > 0)
 	{
-		USoundBase* SoundBase = SoftSound.Sound.LoadSynchronous();
-		if (SoundBase)
+		FString Name;
+		for (FResourceProperty_SoundAssetTag AssetTag : SoundAssetTags)
 		{
-			return SoundBase->GetName();
+			Name += AssetTag.RowName.ToString() + "-" + AssetTag.ResourceNameOrIndex + "|";
+		}
+		return Name;
+	}
+	else
+	{
+		FResourceProperty_SoundInfo SoftSound;
+		FString FindName = NameOrIndex.IsEmpty() ? ResourceNameOrIndex : NameOrIndex;
+		if (UResourceBPFunctionLibrary::GetResourceFromString_Sound(RowName, FindName, SoftSound))
+		{
+			USoundBase* SoundBase = SoftSound.Sound.LoadSynchronous();
+			if (SoundBase)
+			{
+				return SoundBase->GetName();
+			}
 		}
 	}
 	return Super::GetNotifyName_Implementation();
@@ -332,7 +390,7 @@ USoundSubsystem* UPlaySoundResource::GetSoundSubsystem()
 {
 	if (!SoundSubsystem)
 	{
-		SoundSubsystem = Cast<USoundSubsystem>(USubsystemBlueprintLibrary::GetWorldSubsystem(GWorld, USoundSubsystem::StaticClass()));
+		SoundSubsystem = Cast<USoundSubsystem>(USubsystemBlueprintLibrary::GetWorldSubsystem(World, USoundSubsystem::StaticClass()));
 	}
 	return SoundSubsystem;
 }
@@ -391,6 +449,37 @@ void UPlaySoundResource::SetParameter(UAudioComponent* AudioComponent, FName Sou
 TArray<FResourceProperty_SoundAssetTag> UPlaySoundResource::GetAllSoundAssetTags()
 {
 	TArray<FResourceProperty_SoundAssetTag> ReturnSoundAssetTags = SoundAssetTags;
-	ReturnSoundAssetTags.Add(FResourceProperty_SoundAssetTag(RowName, GetResourceNameOrIndex()));
+	if (!RowName.IsNone())
+	{
+		ReturnSoundAssetTags.Add(FResourceProperty_SoundAssetTag(RowName, GetResourceNameOrIndex()));
+	}
 	return ReturnSoundAssetTags;
+}
+
+int32 UPlaySoundResource::GetCurPlaySoundResourceIndex()
+{
+#if WITH_EDITORONLY_DATA
+	return CurPlaySoundResourceIndex_Editor;
+#else
+	return CurPlaySoundResourceIndex;
+#endif
+}
+
+int32 UPlaySoundResource::ChangeCurPlaySoundResourceIndex(int32 ChangeValue)
+{
+#if WITH_EDITORONLY_DATA
+	CurPlaySoundResourceIndex_Editor = ChangeValue;
+#else
+	CurPlaySoundResourceIndex = ChangeValue;
+#endif
+	return ChangeValue;
+}
+
+int32 UPlaySoundResource::AddCurPlaySoundResourceIndex(int32 AddValue)
+{
+#if WITH_EDITORONLY_DATA
+	return CurPlaySoundResourceIndex_Editor += AddValue;
+#else
+	return CurPlaySoundResourceIndex += AddValue;
+#endif
 }

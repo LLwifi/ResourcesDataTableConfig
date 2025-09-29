@@ -6,19 +6,10 @@
 #include "GameFramework/Actor.h"
 #include <Sound/SoundEvent.h>
 #include "Kismet/KismetSystemLibrary.h"
+#include <Kismet/KismetMathLibrary.h>
 #include "SoundCollision.generated.h"
 
 class UBGMChannel;
-
-//碰撞形状
-UENUM(BlueprintType)
-enum class ESoundCollisionShape : uint8
-{
-	None = 0 UMETA(DisplayName = "无"),
-	Sphere UMETA(DisplayName = "圆"),
-	Capsule UMETA(DisplayName = "胶囊体"),
-	Box UMETA(DisplayName = "盒")
-};
 
 //碰撞处理的方式
 UENUM(BlueprintType)
@@ -34,7 +25,11 @@ enum class ESoundActionType : uint8
 	StopSound UMETA(DisplayName = "仅弹出由该碰撞引起的声音"),
 	TriggerSoundEvent UMETA(DisplayName = "触发音效事件"),
 	LookCheck UMETA(DisplayName = "开始摄像机查看检测"),
-	LookCheckStop UMETA(DisplayName = "停止摄像机查看检测")
+	LookCheckStop UMETA(DisplayName = "停止摄像机查看检测"),
+
+	TriggerOtherCollisionCheck UMETA(DisplayName = "触发其他音效碰撞的主动检测"),
+	TriggerOtherCollisionBeginOverlap UMETA(DisplayName = "触发其他音效碰撞的进入检测"),
+	TriggerOtherCollisionEndOverlap UMETA(DisplayName = "触发其他音效碰撞的离开检测")
 };
 
 /*
@@ -46,10 +41,11 @@ struct FSoundCollisionAction
 	GENERATED_BODY()
 
 public:
-	//进入时的声音动作
+	//声音动作类型
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound")
 	ESoundActionType SoundActionType = ESoundActionType::None;
 
+	//资源标记
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true, EditConditionHides, EditCondition = "SoundActionType == ESoundActionType::PushBGM || SoundActionType == ESoundActionType::Sound2D || SoundActionType == ESoundActionType::Sound3D"), Category = "Sound")
 	TArray<FResourceProperty_SoundAssetTag> ResourceProperty;
 
@@ -59,11 +55,112 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true, GetOptions = "SoundEventName", EditConditionHides, EditCondition = "SoundActionType == ESoundActionType::TriggerSoundEvent"), Category = "Sound")
 	FName SoundEventName;
-	//音效事件的相关参数是否动态获取
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true, EditConditionHides, EditCondition = "SoundActionType == ESoundActionType::TriggerSoundEvent"), Category = "Sound")
-	bool bCompareParameterIsDynamic = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true, EditConditionHides, EditCondition = "SoundActionType == ESoundActionType::TriggerSoundEvent && !bCompareParameterIsDynamic"), Category = "Sound")
-	FSoundCompareParameter CompareParameter;
+	/*额外提供的音效事件参数
+	* 音效事件所需的参数会将该参数和动态获取的参数合并
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true), Category = "Sound")
+	FCC_CompareInfo CompareParameter;
+
+	//链接的其他音效碰撞
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true, EditConditionHides, EditCondition = "SoundActionType == ESoundActionType::TriggerOtherCollisionCheck || SoundActionType == ESoundActionType::TriggerOtherCollisionBeginOverlap || SoundActionType == ESoundActionType::TriggerOtherCollisionEndOverlap"))
+	TArray<ASoundCollision*> LinkSoundCollision;
+};
+
+/*
+* 声音碰撞动作信息
+*/
+USTRUCT(BlueprintType)
+struct FSoundCollisionActionInfo
+{
+	GENERATED_BODY()
+
+public:
+	TArray<FSoundCollisionAction> GetAction()
+	{
+		
+		TArray<FSoundCollisionAction> UseSoundCollisionAction;
+		TArray<FSoundCollisionAction> AllAction;
+		SoundCollisionAction.GenerateValueArray(AllAction);
+		switch (PlaySoundResourceType)
+		{
+		case EPlaySoundResourceType::ArrayRandom://数组随机
+		{
+			if (AllAction.Num() > 0)
+			{
+				UseSoundCollisionAction.Add(AllAction[UKismetMathLibrary::RandomIntegerInRange(0, AllAction.Num() - 1)]);
+			}
+			break;
+		}
+		case EPlaySoundResourceType::WeightRandom://权重随机
+		{
+			int32 MaxValue = 0;
+			for (int32 i : PlaySoundResourceIntValue)
+			{
+				MaxValue += i;
+			}
+			int32 RandomValue = UKismetMathLibrary::RandomIntegerInRange(0, MaxValue);
+			int32 LastValue = 0;
+			for (int32 i = 0; i < PlaySoundResourceIntValue.Num(); i++)
+			{
+				if (RandomValue >= LastValue && RandomValue <= LastValue + PlaySoundResourceIntValue[i])
+				{
+					LastValue = i;
+					break;
+				}
+				LastValue += PlaySoundResourceIntValue[i];
+			}
+			UseSoundCollisionAction.Add(AllAction[LastValue]);
+			break;
+		}
+		case EPlaySoundResourceType::ArrayIndexLoop://列表循环
+		{
+			UseSoundCollisionAction.Add(AllAction[CurPlaySoundResourceIndex]);
+			if (++CurPlaySoundResourceIndex >= AllAction.Num())
+			{
+				CurPlaySoundResourceIndex = 0;
+			}
+			break;
+		}
+		case EPlaySoundResourceType::CustomIndexLoop://自定义下标循环
+		{
+			if (AllAction.IsValidIndex(PlaySoundResourceIntValue[CurPlaySoundResourceIndex]))
+			{
+				UseSoundCollisionAction.Add(AllAction[PlaySoundResourceIntValue[CurPlaySoundResourceIndex]]);
+			}
+			if (++CurPlaySoundResourceIndex >= PlaySoundResourceIntValue.Num())
+			{
+				CurPlaySoundResourceIndex = 0;
+			}
+			break;
+		}
+		case EPlaySoundResourceType::SimultaneouslyPlay:
+		{
+			SoundCollisionAction.GenerateValueArray(UseSoundCollisionAction);
+			break;
+		}
+		default:
+			break;
+		}
+
+		return UseSoundCollisionAction;
+	}
+
+public:
+	//声音动作数组
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound")
+	TMap<FString, FSoundCollisionAction> SoundCollisionAction;
+	//播放类型
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound")
+	EPlaySoundResourceType PlaySoundResourceType = EPlaySoundResourceType::ArrayRandom;
+	/*该值根据播放类型的不同进行不同的配置
+	* 权重随机：表示权重
+	* 自定义下标循环：表示下标
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound", meta = (EditConditionHides, EditCondition = "PlaySoundResourceType != EPlaySoundResourceType::ArrayRandom"))
+	TArray<int32> PlaySoundResourceIntValue;
+	//当前播放的音效资源下标
+	UPROPERTY(BlueprintReadWrite)
+	int32 CurPlaySoundResourceIndex = 0;
 };
 
 /*声音碰撞
@@ -99,10 +196,6 @@ public:
 	void OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	void OnEndOverlap_Implementation(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-	//刷新声音碰撞
-	UFUNCTION(BlueprintCallable, CallInEditor)
-	void Refresh();
-
 	UFUNCTION(BlueprintCallable)
 	void CheckCollision();
 
@@ -118,7 +211,15 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SoundAction(FSoundCollisionAction SoundCollisionAction);
 
+	UFUNCTION(BlueprintCallable)
+	void SoundActionArray(TArray<FSoundCollisionAction> SoundCollisionActionArray);
+
 public:
+	/*碰撞是否在碰撞一次后失效
+	* 该值为true时，在【离开】碰撞触发一次后本碰撞将被设置为NoCollision
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	bool bCollisionOnce = false;
 	//开始游戏后主动检测碰撞
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
 	bool bBeginPlayCheckCollision = false;
@@ -126,13 +227,28 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "bBeginPlayCheckCollision"), Category = "Collision")
 	float CheckCollisionDelayTime = 1.0f;
 	//碰撞检测类型
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "bBeginPlayCheckCollision"), Category = "Collision")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
 	TArray<TEnumAsByte<EObjectTypeQuery>> CollisionObjectTypes = { EObjectTypeQuery::ObjectTypeQuery3 };
 	//碰撞检测忽略的对象
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "bBeginPlayCheckCollision"), Category = "Collision")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
 	TArray<AActor*> ActorsToIgnore;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "bBeginPlayCheckCollision"), Category = "Collision")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
 	TEnumAsByte<EDrawDebugTrace::Type> DrawDebugType;
+	//仅允许通过的Class
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
+	TArray<TSoftClassPtr<AActor>> OnlyPassClassArray;
+
+	//主动检测的声音动作是否要使用进入或离开时的声音动作
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound", meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bCheckSoundActionUseBeginOrEnd = true;
+	/*使用进入时的声音动作
+	* 该值为false时使用离开时的声音动作
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound", meta = (EditCondition = "bCheckSoundActionUseBeginOrEnd"))
+	bool bUseBeginOverlap = true;
+	//主动检测的声音动作
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound", meta = (EditConditionHides, EditCondition = "!bCheckSoundActionUseBeginOrEnd"))
+	FSoundCollisionActionInfo SoundCollisionAction_Check;
 
 	//推送BGM时是否要检测该BGM已经存在，如果已经存在则不会再次推送相同的BGM
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound")
@@ -140,7 +256,7 @@ public:
 
 	//进入时的声音动作
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound")
-	FSoundCollisionAction SoundCollisionAction_BeginOverlap;
+	FSoundCollisionActionInfo SoundCollisionAction_BeginOverlap;
 
 #if WITH_EDITORONLY_DATA
 	//显示视线检测相关参数
@@ -171,27 +287,12 @@ public:
 
 	//离开时的声音动作
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sound")
-	FSoundCollisionAction SoundCollisionAction_EndOverlap;
+	FSoundCollisionActionInfo SoundCollisionAction_EndOverlap;
 
 	UPROPERTY()
 	TArray<UBGMChannel*> BGMChannel;
 	UPROPERTY()
 	TArray<UAudioComponent*> SoundComs;
-
-	//渲染碰撞的厚度
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shape")
-	float LineThickness = 10.0f;
-	//渲染碰撞的颜色
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shape")
-	FColor ShapeColor;
-
-	//碰撞形状
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shape")
-	ESoundCollisionShape CollisionShape = ESoundCollisionShape::None;
-
-	//碰撞信息
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shape")
-	FBodyInstance BodyInstance;
 
 	//根
 	UPROPERTY(BlueprintReadOnly, Category = "Shape")
@@ -209,22 +310,6 @@ public:
 	//胶囊体碰撞
 	UPROPERTY(BlueprintReadOnly, Category = "Shape")
 	class UCapsuleComponent* CapsuleComponent;
-
-	//盒型碰撞尺寸
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (EditConditionHides, EditCondition = "CollisionShape == ESoundCollisionShape::Box"), Category = "Shape")
-	FVector BoxExtent = FVector(32.0f,32.0f,32.0f);
-
-	//圆形碰撞半径
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (EditConditionHides, EditCondition = "CollisionShape == ESoundCollisionShape::Sphere"), Category = "Shape")
-	float SphereRadius = 32.0f;
-
-
-	//胶囊体高
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (EditConditionHides, EditCondition = "CollisionShape == ESoundCollisionShape::Capsule"), Category = "Shape")
-	float CapsuleHalfHeight = 44.0f;
-	//胶囊半径
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (EditConditionHides, EditCondition = "CollisionShape == ESoundCollisionShape::Capsule"), Category = "Shape")
-	float CapsuleRadius = 22.0f;
 
 	//触发重叠的Actor
 	UPROPERTY()

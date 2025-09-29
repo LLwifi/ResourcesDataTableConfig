@@ -25,7 +25,8 @@ public class ResourcesDataTableConfig : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core"
+				"Core",
+				"CommonCompare",//该模块依赖另外一个插件
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -43,6 +44,7 @@ public class ResourcesDataTableConfig : ModuleRules
 				"GameplayTags",
                 "AudioExtensions",//使用了FAudioParameter结构体
 				"AudioModulation",//该模块需要项目启用插件
+
 				/*
 					{
 						"Name": "AudioModulation",

@@ -126,7 +126,9 @@ void UPlaySoundResourceState::Play(USkeletalMeshComponent* MeshComp)
 	{
 		for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
 		{
-			NewSoundComponent.Add(UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), VolumeMultiplier, PitchMultiplier));
+			UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), VolumeMultiplier, PitchMultiplier);
+			NewSoundComponent.Add(AudioComponent);
+			//SetParameter(AudioComponent, UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex);
 		}
 	}
 	else
@@ -134,31 +136,11 @@ void UPlaySoundResourceState::Play(USkeletalMeshComponent* MeshComp)
 	{
 		if (bFollow)
 		{
-			if (World && World->HasBegunPlay())
-			{
-				NewSoundComponent = GetSoundSubsystem()->PlaySound_Attached_Array(MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp, IsRandomPlayOneSound, !bUseAnimNotifyParameter, AttachName, FVector(ForceInit), FRotator(), EAttachLocation::SnapToTarget, false, VolumeMultiplier, PitchMultiplier);
-			}
-			else
-			{
-				for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
-				{
-					NewSoundComponent.Add(UGameplayStatics::SpawnSoundAttached(GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), MeshComp, AttachName, FVector(ForceInit), EAttachLocation::SnapToTarget, false, VolumeMultiplier, PitchMultiplier));
-				}
-			}
+			NewSoundComponent = GetSoundSubsystem()->PlaySound_Attached_Array(MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp, IsRandomPlayOneSound, !bUseAnimNotifyParameter, AttachName, FVector(ForceInit), FRotator(), EAttachLocation::SnapToTarget, false, VolumeMultiplier, PitchMultiplier);
 		}
 		else
 		{
-			if (World && World->HasBegunPlay())
-			{
-				NewSoundComponent = GetSoundSubsystem()->PlaySound_Location_Array(MeshComp->GetWorld(), MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp->GetComponentLocation(), IsRandomPlayOneSound, !bUseAnimNotifyParameter, FRotator(), VolumeMultiplier, PitchMultiplier);
-			}
-			else
-			{
-				for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
-				{
-					NewSoundComponent.Add(UGameplayStatics::SpawnSoundAtLocation(MeshComp->GetWorld(), GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), MeshComp->GetComponentLocation(), FRotator::ZeroRotator, VolumeMultiplier, PitchMultiplier));
-				}
-			}
+			NewSoundComponent = GetSoundSubsystem()->PlaySound_Location_Array(MeshComp->GetWorld(), MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp->GetComponentLocation(), IsRandomPlayOneSound, !bUseAnimNotifyParameter, FRotator(), VolumeMultiplier, PitchMultiplier);
 		}
 	}
 

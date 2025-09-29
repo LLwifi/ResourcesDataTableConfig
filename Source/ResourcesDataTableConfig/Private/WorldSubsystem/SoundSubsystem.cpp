@@ -345,6 +345,47 @@ void UBGMChannel::RefreshChannelVolume()
 	BGMChannelVolumeChange.Broadcast();
 }
 
+void UBGMChannel::ChangeBGMChanel(FName OtherChannelName, FChangeBGMChanelInfo ChangeBGMChanelInfo)
+{
+	switch (ChangeBGMChanelInfo.ChangeBGMChanelType)
+	{
+	case EChangeBGMChanelType::Volume:
+	{
+		SetChannelVolume(OtherChannelName, ChangeBGMChanelInfo.Volume);
+		break;
+	}
+	case EChangeBGMChanelType::Paused:
+	{
+		ChangeChannelPauseState(OtherChannelName, true);
+		break;
+	}
+	case EChangeBGMChanelType::PopUp:
+	{
+		ChannelEnd();
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+void UBGMChannel::ChangeChannelPauseState(FName OtherChannelName, bool IsPause/* = true*/)
+{
+	if (CurAudioCom)
+	{
+		if (IsPause)
+		{
+			OtherChannelPause.Add(OtherChannelName);
+		}
+		else
+		{
+			OtherChannelPause.Remove(OtherChannelName);
+		}
+		//只要有一个还在赋予暂停，那么仍然暂停
+		CurAudioCom->SetPaused(OtherChannelPause.Num() > 0);
+	}
+}
+
 void USoundSubsystem::Deinitialize()
 {
 	Super::Deinitialize();
@@ -367,6 +408,8 @@ UAudioComponent* USoundSubsystem::PlaySound_2D(const UObject* WorldContextObject
 		{
 			ConcurrencySettings = Sound.SoundConcurrency.LoadSynchronous();
 		}
+
+		//2D音效不需要衰减设置
 
 		UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(WorldContextObject, Sound.Sound.LoadSynchronous(), Volume,
 			PitchMultiplier,StartTime,ConcurrencySettings,bPersistAcrossLevelTransition,bAutoDestroy);
@@ -393,9 +436,14 @@ UAudioComponent* USoundSubsystem::PlaySound_Location(const UObject* WorldContext
 	{
 		float Volume = GetOtherPlayerVolume(Player, VolumeMultiplier);
 
-		if (!ConcurrencySettings)//如果外部没有指定的话，尝试获取表里面配置的音效并发性设置
+		if (!ConcurrencySettings)//如果外部没有指定的话，获取表里面配置的音效并发性设置
 		{
 			ConcurrencySettings = Sound.SoundConcurrency.LoadSynchronous();
+		}
+
+		if (!AttenuationSettings)//如果外部没有指定的话，获取表里面配置的衰减
+		{
+			AttenuationSettings = Sound.SoundAttenuation.LoadSynchronous();
 		}
 
 		UAudioComponent* AudioComponent = UGameplayStatics::SpawnSoundAtLocation(WorldContextObject,Sound.Sound.LoadSynchronous(),Location,Rotation, Volume,
@@ -427,6 +475,11 @@ FVector Location, FRotator Rotation, EAttachLocation::Type LocationType,bool bSt
 		if (!ConcurrencySettings)//如果外部没有指定的话，尝试获取表里面配置的音效并发性设置
 		{
 			ConcurrencySettings = Sound.SoundConcurrency.LoadSynchronous();
+		}
+
+		if (!AttenuationSettings)//如果外部没有指定的话，获取表里面配置的衰减
+		{
+			AttenuationSettings = Sound.SoundAttenuation.LoadSynchronous();
 		}
 
 		UAudioComponent* AudioComponent = UGameplayStatics::SpawnSoundAttached(Sound.Sound.LoadSynchronous(),AttachToComponent,AttachPointName,Location,Rotation,LocationType,
@@ -668,7 +721,8 @@ UUserWidget* USoundSubsystem::GetSubtitlesPanel()
 		TSubclassOf<UUserWidget> UIClass = UResourcesConfig::GetInstance()->SubtitlesWidgetClass.LoadSynchronous();
 		if (UIClass)
 		{
-			SubtitlesPanel = CreateWidget(GetWorld(), UIClass);
+			UWorld* world = GWorld;//直接使用GetWorld()外部通过const_cast<USoundSubsystem*>(GetDefault<USoundSubsystem>());获取时有几率获取不到导致字幕UI创建不成功
+			SubtitlesPanel = CreateWidget(world, UIClass);
 			if (SubtitlesPanel)
 			{
 				SubtitlesPanel->AddToViewport(UResourcesConfig::GetInstance()->SubtitlesWidgetZOrder);
@@ -701,6 +755,20 @@ UBGMChannel* USoundSubsystem::PushBGMToChannel_CustomChannelName(FName ChannelNa
 UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo(FBGMInfo PushInfo)
 {
 	UBGMChannel* BGMChannel;
+	if (AllBGMChannel.Num() == 0)//初始创建BGM通道
+	{
+		for (FName& BGMChannelName : UResourcesConfig::GetInstance()->InitCreateBGMChannelNames)
+		{
+			BGMChannel = NewObject<UBGMChannel>(this);
+			if (BGMChannel)
+			{
+				AllBGMChannel.Add(BGMChannelName, BGMChannel);
+				BGMChannel->ChannelName = BGMChannelName;
+				BGMChannel->SoundSubsystem = this;
+			}
+		}
+	}
+
 	if (AllBGMChannel.Contains(PushInfo.BGMChannelName))
 	{
 		AllBGMChannel[PushInfo.BGMChannelName]->PushBGMOfInfo(PushInfo);
@@ -725,16 +793,16 @@ UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo(FBGMInfo PushInfo)
 		{
 			for (TPair<FName, UBGMChannel*>& Pair : AllBGMChannel)
 			{
-				Pair.Value->SetChannelVolume(PushInfo.BGMChannelName, PushInfo.OtherAllChannelVolume);
+				Pair.Value->ChangeBGMChanel(PushInfo.BGMChannelName, PushInfo.ChangeAllBGMChanelInfo);
 			}
 		}
 		else
 		{
-			for (TPair<FName, float>& Pair : PushInfo.OtherChannelVolume)
+			for (TPair<FName, FChangeBGMChanelInfo>& Pair : PushInfo.ChannelOtherBGMChanelInfo)
 			{
 				if (AllBGMChannel.Contains(Pair.Key))
 				{
-					AllBGMChannel[Pair.Key]->SetChannelVolume(PushInfo.BGMChannelName, Pair.Value);
+					AllBGMChannel[Pair.Key]->ChangeBGMChanel(PushInfo.BGMChannelName, Pair.Value);
 				}
 			}
 		}
@@ -785,17 +853,36 @@ void USoundSubsystem::SomeChannelPopBGM(UBGMChannel* Channel)
 	//某个推送结束了：1.该通道结束了	2.该通道有新的信息推送了，之前的信息影响的内容需要还原
 	if (Channel)
 	{
-		for (TPair<FName, float> Pair : Channel->CurBGMInfo.OtherChannelVolume)
+		for (TPair<FName, FChangeBGMChanelInfo> Pair : Channel->CurBGMInfo.ChannelOtherBGMChanelInfo)
 		{
 			if (AllBGMChannel.Contains(Pair.Key))//是否有被影响的通道
 			{
-				AllBGMChannel[Pair.Key]->SetChannelVolume(Channel->ChannelName,1.0f);
+				switch (Pair.Value.ChangeBGMChanelType)
+				{
+				case EChangeBGMChanelType::Volume:
+				{
+					AllBGMChannel[Pair.Key]->SetChannelVolume(Channel->ChannelName, 1.0f);
+					break;
+				}
+				case EChangeBGMChanelType::Paused:
+				{
+					AllBGMChannel[Pair.Key]->ChangeChannelPauseState(Channel->ChannelName, false);
+					break;
+				}
+				case EChangeBGMChanelType::PopUp:
+				{
+					//弹出无法复原
+					break;
+				}
+				default:
+					break;
+				}
 			}
 		}
 	}
 }
 
-void USoundSubsystem::TriggerSoundEvent(FName EventName, FSoundCompareParameter CompareParameter, TArray<UAudioComponent*>& SoundComs, TArray<UBGMChannel*>& BGMChannels)
+void USoundSubsystem::TriggerSoundEvent(FName EventName, FCC_CompareInfo CompareParameter, TArray<UAudioComponent*>& SoundComs, TArray<UBGMChannel*>& BGMChannels)
 {
 	UDataTable* SoundEventDataTable = UResourcesConfig::GetInstance()->SoundEventDataTable.LoadSynchronous();
 	if (SoundEventDataTable)
@@ -805,136 +892,31 @@ void USoundSubsystem::TriggerSoundEvent(FName EventName, FSoundCompareParameter 
 		{
 			if (SoundEventInfo->bIsCompare)
 			{
+				FText FailText;
 				int32 MaxPlayCount = SoundEventInfo->MaxPlaySoundCount;
 				for (TPair<FString, FSoundCompareInfo>& SoundCompareInfo : SoundEventInfo->SoundCompareInfo)
 				{
-					if (MaxPlayCount != 0 && SoundEventCompare(SoundCompareInfo.Value, CompareParameter))
+					if (MaxPlayCount != 0 && SoundCompareInfo.Value.BeCompareInfo.CompareResult(CompareParameter, FailText))
 					{
 						MaxPlayCount--;
-						//如果外部有播放的需求，只要有一个判断通过了就结束这次Triiger并且播放外部的参数
-						if (CompareParameter.bIsOverrideSoundEventProcess)
-						{
-							SoundEventProcess(CompareParameter.SoundEventProcess, SoundComs, BGMChannels);
-							return;
-						}
 						//声音事件的处理是否重载了
-						if (SoundCompareInfo.Value.SoundCompareParameter.bIsOverrideSoundEventProcess)
+						if (SoundCompareInfo.Value.bIsOverrideSoundEventProcess)
 						{
-							SoundEventProcess(SoundCompareInfo.Value.SoundCompareParameter.SoundEventProcess, SoundComs, BGMChannels);
+							SoundEventProcess(SoundCompareInfo.Value.OverrideSoundEventProcess, SoundComs, BGMChannels);
 						}
 						else
 						{
-							SoundEventProcess(SoundEventInfo->SoundEventProcess, SoundComs, BGMChannels);
+							SoundEventProcess(SoundEventInfo->DefaultSoundEventProcess, SoundComs, BGMChannels);
 						}
 					}
 				}
 			}
 			else
 			{
-				SoundEventProcess(SoundEventInfo->SoundEventProcess, SoundComs, BGMChannels);
+				SoundEventProcess(SoundEventInfo->DefaultSoundEventProcess, SoundComs, BGMChannels);
 			}
 		}
 	}
-}
-
-bool USoundSubsystem::SoundEventCompare(FSoundCompareInfo& SoundCompareInfo, FSoundCompareParameter& CompareParameter)
-{
-	if (SoundCompareInfo.IsUseOuterCompare)//是否使用对照类进行比对
-	{
-		if (!SoundCompareInfo.OuterCompareClass.IsNull())
-		{
-			USoundCompare* SoundCompare = NewObject<USoundCompare>(this, SoundCompareInfo.OuterCompareClass.LoadSynchronous());//这里可以作为对象池进行优化
-			if (SoundCompare)
-			{
-				return SoundCompare->CompareResult(SoundCompareInfo, CompareParameter);
-			}
-		}
-		return false;
-	}
-	else
-	{
-		//String判断 如果有该限制就需要相等
-		if (!SoundCompareInfo.SoundCompareParameter.CompareString.IsEmpty())
-		{
-			if (SoundCompareInfo.SoundCompareParameter.CompareString != CompareParameter.CompareString)
-			{
-				return false;
-			}
-		}
-
-		//Class判断 是否有Class条件
-		if (!SoundCompareInfo.SoundCompareParameter.CompareClass.IsNull())
-		{
-			//Class一致 或者 Object属于子类
-			if (!(SoundCompareInfo.SoundCompareParameter.CompareClass.IsValid() && SoundCompareInfo.SoundCompareParameter.CompareClass == CompareParameter.CompareClass) &&
-				!(CompareParameter.CompareObject && CompareParameter.CompareObject->IsA(SoundCompareInfo.SoundCompareParameter.CompareClass.Get())))
-			{
-				return false;
-			}
-		}
-
-		//Tag对照判断
-		if (!SoundCompareInfo.SoundCompareParameter.CompareTag.IsEmpty())
-		{
-			if (!CompareParameter.CompareTag.IsEmpty())//比对对象数据也需要有tag否则失败
-			{
-				if (SoundCompareInfo.CompareTagIsAllMatch)//对比是否包含任意一个tag还是 全部tag都需要包含
-				{
-					if (SoundCompareInfo.CompareTagIsExactMatch)
-					{
-						return CompareParameter.CompareTag.HasAllExact(SoundCompareInfo.SoundCompareParameter.CompareTag);
-					}
-					else
-					{
-						return CompareParameter.CompareTag.HasAll(SoundCompareInfo.SoundCompareParameter.CompareTag);
-					}
-				}
-				else
-				{
-					if (SoundCompareInfo.CompareTagIsExactMatch)
-					{
-						return CompareParameter.CompareTag.HasAnyExact(SoundCompareInfo.SoundCompareParameter.CompareTag);
-					}
-					else
-					{
-						return CompareParameter.CompareTag.HasAny(SoundCompareInfo.SoundCompareParameter.CompareTag);
-					}
-				}
-			}
-			else
-			{
-				return false;
-			}
-		}
-
-		//Int判断
-		if (SoundCompareInfo.IsCompareNum)
-		{
-			if (SoundCompareInfo.CompareNumIsGreater)//大于
-			{
-				if (SoundCompareInfo.CompareNumIsequal)
-				{
-					return CompareParameter.CompareNum >= SoundCompareInfo.SoundCompareParameter.CompareNum;
-				}
-				else
-				{
-					return CompareParameter.CompareNum > SoundCompareInfo.SoundCompareParameter.CompareNum;
-				}
-			}
-			else
-			{
-				if (SoundCompareInfo.CompareNumIsequal)
-				{
-					return CompareParameter.CompareNum <= SoundCompareInfo.SoundCompareParameter.CompareNum;
-				}
-				else
-				{
-					return CompareParameter.CompareNum < SoundCompareInfo.SoundCompareParameter.CompareNum;
-				}
-			}
-		}
-	}
-	return true;
 }
 
 void USoundSubsystem::SoundEventProcess(FSoundEventProcess& ProcessInfo, TArray<UAudioComponent*>& SoundComs, TArray<UBGMChannel*>& BGMChannels)
@@ -944,24 +926,26 @@ void USoundSubsystem::SoundEventProcess(FSoundEventProcess& ProcessInfo, TArray<
 		PopBGMChannel(BGMChannelName);
 	}
 
-	SoundComs = SoundEventPlay(ProcessInfo.SoundAssetTag);
-	BGMChannels = SoundEventPush(ProcessInfo.BGMAssetTag);
-	SoundEventAudioModulation(ProcessInfo.AudioModulationInfo);
-}
-
-TArray<UAudioComponent*> USoundSubsystem::SoundEventPlay(TArray<FResourceProperty_SoundAssetTag>& SoundAssetTag)
-{
-	return PlaySound_2D_Array(this, UGameplayStatics::GetPlayerPawn(this, 0), SoundAssetTag, FGameplayTag());
-}
-
-TArray<UBGMChannel*> USoundSubsystem::SoundEventPush(TArray<FResourceProperty_SoundAssetTag>& BGMAssetTag)
-{
-	TArray<UBGMChannel*> BGMChannels;
-	for (FResourceProperty_SoundAssetTag& BGMTag : BGMAssetTag)
+	for (FResourceProperty_SoundAssetTag SoundAssetTag : ProcessInfo.SoundAssetTag)
 	{
-		BGMChannels.Add(PushBGMToChannel(BGMTag.RowName, BGMTag.ResourceNameOrIndex));
+		switch (SoundAssetTag.SoundAssetType)
+		{
+		case ESoundAssetType::Sound:
+		{
+			SoundComs.Add(PlaySound_2D(this, UGameplayStatics::GetPlayerPawn(this, 0), SoundAssetTag.RowName, SoundAssetTag.ResourceNameOrIndex, FGameplayTag()));
+			break;
+		}
+		case ESoundAssetType::BGM:
+		{
+			BGMChannels.Add(PushBGMToChannel(SoundAssetTag.RowName, SoundAssetTag.ResourceNameOrIndex));
+			break;
+		}
+		default:
+			break;
+		}
 	}
-	return BGMChannels;
+
+	SoundEventAudioModulation(ProcessInfo.AudioModulationInfo);
 }
 
 void USoundSubsystem::SoundEventAudioModulation(FSoundEventAudioModulationInfo& ModulationInfo)
