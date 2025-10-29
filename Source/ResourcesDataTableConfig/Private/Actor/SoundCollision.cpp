@@ -167,17 +167,21 @@ void ASoundCollision::CheckCollision()
 
 	FHitResult OutHit;
 	bool IsPlay = false;
+	FVector CheckLocation = GetActorLocation();
 	if (SphereComponent)
 	{
-		IsPlay = UKismetSystemLibrary::SphereTraceSingleForObjects(this, GetActorLocation(), GetActorLocation(), SphereComponent->GetUnscaledSphereRadius(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
+		CheckLocation += SphereComponent->GetRelativeLocation();
+		IsPlay = UKismetSystemLibrary::SphereTraceSingleForObjects(this, CheckLocation, CheckLocation, SphereComponent->GetUnscaledSphereRadius(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
 	}
 	else if (CapsuleComponent)
 	{
-		IsPlay = UKismetSystemLibrary::CapsuleTraceSingleForObjects(this, GetActorLocation(), GetActorLocation(), CapsuleComponent->GetUnscaledCapsuleRadius(), CapsuleComponent->GetUnscaledCapsuleHalfHeight(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
+		CheckLocation += CapsuleComponent->GetRelativeLocation();
+		IsPlay = UKismetSystemLibrary::CapsuleTraceSingleForObjects(this, CheckLocation, CheckLocation, CapsuleComponent->GetUnscaledCapsuleRadius(), CapsuleComponent->GetUnscaledCapsuleHalfHeight(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
 	}
 	else if (BoxComponent)
 	{
-		IsPlay = UKismetSystemLibrary::BoxTraceSingleForObjects(this, GetActorLocation(), GetActorLocation(), BoxComponent->GetUnscaledBoxExtent(), GetActorRotation(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
+		CheckLocation += BoxComponent->GetRelativeLocation();
+		IsPlay = UKismetSystemLibrary::BoxTraceSingleForObjects(this, CheckLocation, CheckLocation, BoxComponent->GetUnscaledBoxExtent(), GetActorRotation(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
 	}
 
 	if (IsPlay)

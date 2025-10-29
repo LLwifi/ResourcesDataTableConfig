@@ -9,10 +9,23 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(Dialogue, Log, All);
 
+//对话播放状态
+UENUM(BlueprintType)
+enum class EDialoguePlayState :uint8
+{
+	Delay = 0 UMETA(DisplayName = "等待播放"),
+	StartPlay UMETA(DisplayName = "开始播放"),
+	EndPlay UMETA(DisplayName = "结束播放")
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDialogueEvent, UDialogueManager*, DialogueManager);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOneDialogueEvent, UDialogueManager*, DialogueManager, int32, DialogueIndex, EDialoguePlayState, PlayState);
 
 /**对话管理
  * 使用时配置一个对话表，然后创建该类进行设置（设置对话内容和对话角色（Actor）），设置完成后调用StartDialogue开始对话
+ * bDialogueIsServer : 该对话在客户端还是服务器产生
+ * 在服务器产生时：会计算每个音频的播放时长 最终设置一个timer模拟时长 并不会实际的播放音效
+ * 在客户端产生时：根据配置播放音效 并且根据音效本身的完成回调进行处理
  */
 UCLASS(Blueprintable, BlueprintType, EditInlineNew)
 class RESOURCESDATATABLECONFIG_API UDialogueManager : public UObject
@@ -20,9 +33,11 @@ class RESOURCESDATATABLECONFIG_API UDialogueManager : public UObject
 	GENERATED_BODY()
 
 public:
-	//设置对话角色
+	/*设置对话角色
+	* 这一步的主要目的是让3D声音在对应的Actor位置进行播放
+	*/
 	UFUNCTION(BlueprintCallable)
-	void SetSpeaker(TArray<AActor*> Speakers);
+	void SetSpeaker(TArray<FDialogueSpeaker> Speakers);
 
 	//设置对话内容
 	UFUNCTION(BlueprintCallable)
@@ -59,11 +74,20 @@ public:
 	//结束当前这一句的对话
 	UFUNCTION(BlueprintCallable)
 	void EndCurOneDialogue();
-	
+
+	UFUNCTION(BlueprintPure)
+	USoundSubsystem* GetSoundSubsystem();
+
+	//获取此刻的【音效事件】对比信息
+	UFUNCTION(BlueprintPure)
+	FCC_CompareInfo GetCurSoundEventCompareInfo();
+
+	UFUNCTION(BlueprintCallable)
+	void TriggerDialogueSoundEvent();
 public:
 	//全部演讲者
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true))
-	TArray<AActor*> AllSpeaker;
+	TArray<FDialogueSpeaker> AllSpeaker;
 
 	//当前使用的RowName
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -92,6 +116,10 @@ public:
 	UPROPERTY(BlueprintReadWrite)
 	int32 DialogueIndex = -1;
 
+	//当前对话的播放状态
+	UPROPERTY(BlueprintReadWrite)
+	EDialoguePlayState DialoguePlayState;
+
 	/*是否自动播放下一句对话
 	* 该值开启后一句对话完成 会自动播放后续对话
 	*/
@@ -104,6 +132,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true))
 	bool bDialogueIsServer = false;
 
+	/*作为Mgr对象的标识*/
+	UPROPERTY(BlueprintReadOnly)
+    int32 MgrID = 0;
+	
 	UPROPERTY(BlueprintAssignable)
 	FDialogueEvent DialogueEnd;
+
+	UPROPERTY(BlueprintAssignable)
+	FOneDialogueEvent OneDialogueEvent;
+
+	UPROPERTY(BlueprintReadWrite)
+	USoundSubsystem* SoundSubsystem;
+	
 };

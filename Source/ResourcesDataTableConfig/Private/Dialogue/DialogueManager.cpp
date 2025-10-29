@@ -10,7 +10,7 @@
 
 DEFINE_LOG_CATEGORY(Dialogue);
 
-void UDialogueManager::SetSpeaker(TArray<AActor*> Speakers)
+void UDialogueManager::SetSpeaker(TArray<FDialogueSpeaker> Speakers)
 {
 	AllSpeaker = Speakers;
 }
@@ -69,6 +69,9 @@ void UDialogueManager::StartDialogue()
 
 void UDialogueManager::CurDialogueFinished()
 {
+	DialoguePlayState = EDialoguePlayState::EndPlay;
+	OneDialogueEvent.Broadcast(this, DialogueIndex, DialoguePlayState);
+	TriggerDialogueSoundEvent();
 	UE_LOG(Dialogue, Log, TEXT("CurDialogueFinished CallBack"));
 	if(bIsAutoPlayNextDialogue)
 	{
@@ -78,20 +81,30 @@ void UDialogueManager::CurDialogueFinished()
 
 void UDialogueManager::CurDialogueDelayFinished()
 {
+	DialoguePlayState = EDialoguePlayState::StartPlay;
+	OneDialogueEvent.Broadcast(this, DialogueIndex, DialoguePlayState);
+	TriggerDialogueSoundEvent();
 	UE_LOG(Dialogue, Log, TEXT("CurDialogueDelayFinished"));
 	EndCurOneDialogue();
 
-	USoundSubsystem* SoundSubsystem = Cast<USoundSubsystem>(USubsystemBlueprintLibrary::GetWorldSubsystem(this, USoundSubsystem::StaticClass()));
-	if (SoundSubsystem)
+	if (GetSoundSubsystem())
 	{
 		if (AllSpeaker.IsValidIndex(CurOneDialogueInfo.SpeakerIndex))
 		{
-			CurAudioComponent = SoundSubsystem->PlaySound_Attached(AllSpeaker[CurOneDialogueInfo.SpeakerIndex], CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), AllSpeaker[CurOneDialogueInfo.SpeakerIndex]->GetRootComponent());
+			if (AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerActor)
+			{
+				CurAudioComponent = GetSoundSubsystem()->PlaySound_Attached(AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerActor, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerActor->GetRootComponent());
+			}
+			else
+			{
+				CurAudioComponent = GetSoundSubsystem()->PlaySound_Location(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerLocation);
+			}
+			
 			UE_LOG(Dialogue, Log, TEXT("PlaySound_Attached"));
 		}
 		else
 		{
-			CurAudioComponent = SoundSubsystem->PlaySound_2D(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag());
+			CurAudioComponent = GetSoundSubsystem()->PlaySound_2D(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag());
 			UE_LOG(Dialogue, Log, TEXT("PlaySound_2D"));
 		}
 	}
@@ -116,6 +129,9 @@ void UDialogueManager::CurDialogueDelayFinished()
 void UDialogueManager::NextDialogue()
 {
 	DialogueIndex++;
+	DialoguePlayState = EDialoguePlayState::Delay;
+	OneDialogueEvent.Broadcast(this, DialogueIndex, DialoguePlayState);
+	TriggerDialogueSoundEvent();
 	UE_LOG(Dialogue, Log, TEXT("NextDialogue DialogueIndex = %d"), DialogueIndex);
 	if (SectionDialogueInfo.GetOneDialogueInfoFromIndex(DialogueIndex, CurOneDialogueInfo))
 	{
@@ -158,6 +174,34 @@ void UDialogueManager::EndCurOneDialogue()
 		{
 			CurAudioComponent->OnAudioFinished.Remove(AudioFinished);
 		}
+	}
+}
+
+USoundSubsystem* UDialogueManager::GetSoundSubsystem()
+{
+	if (!SoundSubsystem)
+	{
+		SoundSubsystem = Cast<USoundSubsystem>(USubsystemBlueprintLibrary::GetWorldSubsystem(this, USoundSubsystem::StaticClass()));
+	}
+	return SoundSubsystem;
+}
+
+FCC_CompareInfo UDialogueManager::GetCurSoundEventCompareInfo()
+{
+	FCC_CompareInfo CompareInfo = CurOneDialogueInfo.DialogueSoundEventCompareInfo;
+	CompareInfo.CompareString.Add(SectionDialogueInfo.DialogueName.ToString());
+	CompareInfo.CompareString.Add(FString::FromInt((int32)DialoguePlayState));
+	CompareInfo.CompareFloat.Add(DialogueIndex);
+	return CompareInfo;
+}
+
+void UDialogueManager::TriggerDialogueSoundEvent()
+{
+	if (GetSoundSubsystem() && !bDialogueIsServer)//客户端才需要触发音效事件 服务器无需播放音效
+	{
+		TArray<UAudioComponent*> SoundComs;
+		TArray<UBGMChannel*> BGMChannels;
+		GetSoundSubsystem()->TriggerSoundEvent(FName("DialogueSoundEvent"), GetCurSoundEventCompareInfo(), SoundComs, BGMChannels);
 	}
 }
 

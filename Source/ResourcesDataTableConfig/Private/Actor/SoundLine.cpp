@@ -5,6 +5,7 @@
 #include "Components/SplineComponent.h"
 #include "Components/AudioComponent.h"
 #include "Actor/SoundActor.h"
+#include "SceneComponent/SoundAssetTagAudioComponent.h"
 
 // Sets default values
 ASoundLine::ASoundLine()
@@ -26,15 +27,15 @@ void ASoundLine::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 	{
 		for (ASoundActor*& SoundActor : SoundActors)
 		{
-			SoundActor->GetAudioComponent()->SetAttenuationSettings(AttenuationSettings);
+			SoundActor->SoundAssetTagAudioComponent->SetAttenuationSettings(AttenuationSettings);
 		}
 	}
 	else if (Property->GetFName() == "ResourceNameOrIndex" || Property->GetFName() == "RowName")
 	{
 		for (ASoundActor*& SoundActor : SoundActors)
 		{
-			SoundActor->SoundAssetTag = SoundAssetTag;
-			SoundActor->Refresh();
+			SoundActor->SoundAssetTagAudioComponent->SoundAssetTag = SoundAssetTag;
+			SoundActor->SoundAssetTagAudioComponent->Refresh();
 		}
 	}
 }
@@ -70,8 +71,8 @@ void ASoundLine::Refresh()
 			SoundActor->SetActorLocation(SoundSpline->GetLocationAtTime(Weight * i, ESplineCoordinateSpace::World));
 			SoundActor->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 			SoundActors.Add(SoundActor);
-			SoundActor->SoundAssetTag = SoundAssetTag;
-			SoundActor->Refresh();
+			SoundActor->SoundAssetTagAudioComponent->SoundAssetTag = SoundAssetTag;
+			SoundActor->SoundAssetTagAudioComponent->Refresh();
 		}
 	}
 }

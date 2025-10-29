@@ -80,3 +80,8 @@ void USoundComponent::StopAudioComponentFromTag(FGameplayTag SoundTag, bool IsEx
 	}
 }
 
+FText USoundComponent::GetSoundPlayerName_Implementation()
+{
+	return PlayerName;
+}
+

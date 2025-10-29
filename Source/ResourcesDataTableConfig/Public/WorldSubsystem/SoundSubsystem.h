@@ -251,7 +251,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SomeChannelPopBGM(UBGMChannel* Channel);
 
-
 	//触发声音事件
 	UFUNCTION(BlueprintCallable)
 	void TriggerSoundEvent(FName EventName, FCC_CompareInfo CompareParameter, TArray<UAudioComponent*>& SoundComs, TArray<UBGMChannel*>& BGMChannels);

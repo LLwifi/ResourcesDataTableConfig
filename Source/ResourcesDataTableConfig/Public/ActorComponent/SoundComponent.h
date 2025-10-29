@@ -9,7 +9,25 @@
 #include <Sound/SoundEvent.h>
 #include "SoundComponent.generated.h"
 
+UINTERFACE(MinimalAPI)
+class USoundPlayer : public UInterface
+{
+	GENERATED_BODY()
+};
 
+/**
+ * 声音播放者相关接口
+ */
+class RESOURCESDATATABLECONFIG_API ISoundPlayer
+{
+	GENERATED_BODY()
+public:
+	//获取播放者的名称
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	FText GetSoundPlayerName();
+	virtual FText GetSoundPlayerName_Implementation(){ return FText(); };
+
+};
 
 /*
 * 同类型UAudioComponent
@@ -40,7 +58,7 @@ public:
 * 在Actor上添加该组件后，使用USoundSubsystem播放声音时会储存同一个Player（播放者）播放的声音
 */
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class RESOURCESDATATABLECONFIG_API USoundComponent : public UActorComponent
+class RESOURCESDATATABLECONFIG_API USoundComponent : public UActorComponent, public ISoundPlayer
 {
 	GENERATED_BODY()
 
@@ -62,7 +80,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 		void StopAudioComponentFromTag(FGameplayTag SoundTag, bool IsExactMatch = true, float FadeOutDuration = 0.0f, float FadeVolumeLevel = 0.0f, const EAudioFaderCurve FadeCurve = EAudioFaderCurve::Linear);
 
+	//获取播放者的名称
+	virtual FText GetSoundPlayerName_Implementation() override;
 public:
+	//播放者的名称
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FText PlayerName;
 
 	//播放过的声音
 	UPROPERTY(BlueprintReadOnly)

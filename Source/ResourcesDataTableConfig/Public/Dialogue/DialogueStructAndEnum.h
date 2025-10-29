@@ -4,8 +4,24 @@
 #include <Engine/DataTable.h>
 #include "ResourcesStructAndEnum.h"
 #include <ResourceBPFunctionLibrary.h>
+#include <CC_StructAndEnum.h>
 #include "DialogueStructAndEnum.generated.h"
 
+/*对话者/单位
+* 主要承载着3D语音的发声位置的概念
+*/
+USTRUCT(BlueprintType)
+struct FDialogueSpeaker
+{
+	GENERATED_BODY()
+public:
+	//演讲Actor
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	AActor* SpeakerActor;
+	//演讲Actor
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector SpeakerLocation;
+};
 
 /*一句对话/台词信息
 * 【谁】在说【什么】
@@ -48,7 +64,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Duraction = -1.0f;
 
-
 	/*这句话是对谁说的
 	* 后期可以用于控制脑袋朝向
 	*/
@@ -58,6 +73,16 @@ public:
 	//要播放的声音/台词
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FResourceProperty_SoundAssetTag SoundAssetTag;
+
+	/*音效事件的比对配置标记
+	* 该值会在对话触发【音效事件】时被赋予 触发的音效事件名为：DialogueSoundEvent
+	* 需要注意的是：即使什么都不填在运行时也会动态获取以下信息：
+	* DialogueName 对话标题 标识 名称 会设置到CompareString中
+	* DialoguePlayState 对话播放状态 会设置到CompareString中  （0-等待播放 1-开始播放 2-结束播放）
+	* DialogueIndex 对话下标 会设置到CompareFloat中
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FCC_CompareInfo DialogueSoundEventCompareInfo;
 };
 
 /*一段对话信息
@@ -68,6 +93,15 @@ struct FSectionDialogueInfo: public FTableRowBase
 {
 	GENERATED_BODY()
 public:
+	virtual void OnDataTableChanged(const UDataTable* InDataTable, const FName InRowName) override
+	{
+		FSectionDialogueInfo* SectionDialogue = InDataTable->FindRow<FSectionDialogueInfo>(InRowName, TEXT(""));
+		if (SectionDialogue)
+		{
+			SectionDialogue->DialogueName = InRowName;
+		}
+	}
+
 	//根据下标获取一句对话
 	bool GetOneDialogueInfoFromIndex(int32 Index, FOneDialogueInfo& OneDialogueInfo)
 	{
@@ -79,6 +113,10 @@ public:
 		return false;
 	}
 public:
+	//对话标题 标识 名称
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	FName DialogueName;
+
 	//全部演讲者姓名
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FText> AllSpeakerName;
