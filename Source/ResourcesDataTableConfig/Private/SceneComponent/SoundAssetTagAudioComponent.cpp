@@ -40,6 +40,16 @@ void USoundAssetTagAudioComponent::Refresh()
 			SoundBase = SoundInfo.Sound.LoadSynchronous();
 			AudioParameters = SoundInfo.Parameters.GetAllAudioParameter();
 		}
+
+		if (ConcurrencySet.Num() <= 0)//如果外部没有指定的话，尝试获取表里面配置的音效并发性设置
+		{
+			ConcurrencySet.Add(SoundInfo.SoundConcurrency.LoadSynchronous());
+		}
+
+		if (!AttenuationSettings)//如果外部没有指定的话，获取表里面配置的衰减
+		{
+			SetAttenuationSettings(SoundInfo.SoundAttenuation.LoadSynchronous());
+		}
 		break;
 	}
 	case ESoundAssetType::BGM:

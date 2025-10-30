@@ -323,9 +323,10 @@ public:
 		{
 			for (TSoftObjectPtr<UObject>& Obj : MyArrayObjectParam)
 			{
-				if (Obj.IsValid())
+				TObjectPtr<UObject> ObjTemp = Obj.LoadSynchronous();
+				if (IsValid(ObjTemp))
 				{
-					AudioParameter.ArrayObjectParam.Add(Obj.LoadSynchronous());
+					AudioParameter.ArrayObjectParam.Add(ObjTemp);
 				}
 			}
 		}
@@ -477,7 +478,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSoftObjectPtr<USoundBase> Sound;
 
-	//是否要重载音效的并发性设置
+	//是否要重载音效的并发性设置 后续扩展成数组
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSoftObjectPtr<USoundConcurrency> SoundConcurrency;
 
