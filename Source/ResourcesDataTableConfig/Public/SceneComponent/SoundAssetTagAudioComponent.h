@@ -23,7 +23,7 @@ public:
 	virtual void Activate(bool bReset = false) override;
 
 	//刷新声音
-	UFUNCTION(BlueprintCallable, CallInEditor)
+	UFUNCTION(BlueprintCallable)
 	void Refresh();
 	
 public:

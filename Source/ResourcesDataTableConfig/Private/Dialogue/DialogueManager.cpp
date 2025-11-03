@@ -39,7 +39,7 @@ void UDialogueManager::ChangeAutoPlayState(bool IsAutoPlay)
 	bIsAutoPlayNextDialogue = IsAutoPlay;
 }
 
-void UDialogueManager::StartDialogue()
+void UDialogueManager::StartDialogue(int32 StartDialogueIndex/* = 0*/)
 {
 	AActor* OuterActor = Cast<AActor>(GetOuter());
 	if (OuterActor)
@@ -47,7 +47,7 @@ void UDialogueManager::StartDialogue()
 		bDialogueIsServer = OuterActor->HasAuthority();
 	}
 
-	DialogueIndex = -1;
+	DialogueIndex = StartDialogueIndex - 1;
 	if (bDialogueIsServer)//服务器
 	{
 		if (bIsAutoPlayNextDialogue)//只有自动播放才能一口气计算出整段对话的时长
@@ -153,6 +153,7 @@ void UDialogueManager::NextDialogue()
 
 void UDialogueManager::EndDialogue()
 {
+	bDialogueIsEnd = true;
 	EndCurOneDialogue();
 	DialogueEnd.Broadcast(this);
 	UE_LOG(Dialogue, Log, TEXT("EndDialogue"));
@@ -203,5 +204,15 @@ void UDialogueManager::TriggerDialogueSoundEvent()
 		TArray<UBGMChannel*> BGMChannels;
 		GetSoundSubsystem()->TriggerSoundEvent(FName("DialogueSoundEvent"), GetCurSoundEventCompareInfo(), SoundComs, BGMChannels);
 	}
+}
+
+bool UDialogueManager::DialogueIsPlaying()
+{
+	return DialoguePlayState == EDialoguePlayState::StartPlay;
+}
+
+bool UDialogueManager::DialogueIsEnd()
+{
+	return bDialogueIsEnd;
 }
 

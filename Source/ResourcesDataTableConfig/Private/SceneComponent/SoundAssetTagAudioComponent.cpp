@@ -11,10 +11,10 @@ void USoundAssetTagAudioComponent::PostEditChangeProperty(FPropertyChangedEvent&
 
 	auto Property = PropertyChangedEvent.Property;
 
-	if (Property->GetFName() == "ResourceNameOrIndex" || Property->GetFName() == "RowName")
-	{
-		Refresh();
-	}
+	//if (Property->GetFName() == "ResourceNameOrIndex" || Property->GetFName() == "RowName")
+	//{
+	//	Refresh();
+	//}
 }
 #endif
 

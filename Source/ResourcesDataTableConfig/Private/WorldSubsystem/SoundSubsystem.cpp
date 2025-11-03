@@ -793,7 +793,10 @@ UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo(FBGMInfo PushInfo)
 		{
 			for (TPair<FName, UBGMChannel*>& Pair : AllBGMChannel)
 			{
-				Pair.Value->ChangeBGMChanel(PushInfo.BGMChannelName, PushInfo.ChangeAllBGMChanelInfo);
+				if (Pair.Key != PushInfo.BGMChannelName)//剔除自身的通道
+				{
+					Pair.Value->ChangeBGMChanel(PushInfo.BGMChannelName, PushInfo.ChangeAllBGMChanelInfo);
+				}
 			}
 		}
 		else

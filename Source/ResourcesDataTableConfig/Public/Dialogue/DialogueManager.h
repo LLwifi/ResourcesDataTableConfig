@@ -51,9 +51,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ChangeAutoPlayState(bool IsAutoPlay);
 
-	//开始对话
+	//开始对话 0-表示从头播放
 	UFUNCTION(BlueprintCallable)
-	void StartDialogue();
+	void StartDialogue(int32 StartDialogueIndex = 0);
 
 	//一句对话的完成回调
 	UFUNCTION()
@@ -84,6 +84,18 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void TriggerDialogueSoundEvent();
+
+	/*当前是否正在播放语音/对话（有声音）
+	* 该判断只有在客户端才是准确的，因为服务器不播放音效
+	*/
+	UFUNCTION(BlueprintPure)
+	bool DialogueIsPlaying();
+
+	/*对话是否结束
+	* 客户端服务器均能判断
+	*/
+	UFUNCTION(BlueprintPure)
+	bool DialogueIsEnd();
 public:
 	//全部演讲者
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true))
@@ -119,6 +131,10 @@ public:
 	//当前对话的播放状态
 	UPROPERTY(BlueprintReadWrite)
 	EDialoguePlayState DialoguePlayState;
+
+	//对话是否结束——是否播放完了最后一句对话
+	UPROPERTY(BlueprintReadWrite)
+	bool bDialogueIsEnd = false;
 
 	/*是否自动播放下一句对话
 	* 该值开启后一句对话完成 会自动播放后续对话
