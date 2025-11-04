@@ -455,6 +455,31 @@ public:
 	TMap<FName, FMyAudioParameterMap> CustomAudioParameter;
 };
 
+//声音字幕
+USTRUCT(BlueprintType)
+struct FRDTC_SoundSubtitle
+{
+	GENERATED_BODY()
+public:
+	FRDTC_SoundSubtitle() {}
+	FRDTC_SoundSubtitle(bool IsDisplaySubtitle, bool IsUseSoundWaveSubtitleCue, TArray<FSubtitleCue> Subtitle)
+	{
+		bIsDisplaySubtitle = IsDisplaySubtitle;
+		bIsUseSoundWaveSubtitleCue = IsUseSoundWaveSubtitleCue;
+		SubtitleCue = Subtitle;
+	}
+
+public:
+	//是否开启字幕功能
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIsDisplaySubtitle = false;
+	//是否使用SoundWave音源的字幕配置
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "IsDisplaySubtitle"))
+	bool bIsUseSoundWaveSubtitleCue = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "IsDisplaySubtitle"))
+	TArray<FSubtitleCue> SubtitleCue;
+};
+
 //声音信息
 USTRUCT(BlueprintType)
 struct FResourceProperty_SoundInfo : public FTableRowBase
@@ -493,9 +518,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		bool IsDisplaySubtitle = false;
 	//是否使用SoundWave音源的字幕配置
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "IsDisplaySubtitle"))
 		bool IsUseSoundWaveSubtitleCue = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditConditionHides, EditCondition = "IsDisplaySubtitle"))
 		TArray<FSubtitleCue> SubtitleCue;
 
 	//相关资源
@@ -711,6 +736,10 @@ public:
 	//淡入淡出的等待时间混合比例。根据通过上一段音乐混出时间换算
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = 0, ClampMax = 1, EditConditionHides, EditCondition = "SwitchBMGType == ESwitchBMGType::Fade"))
 	float DelayTimeScale = 0.5f;
+
+	//字幕
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FRDTC_SoundSubtitle SoundSubtitle;
 
 	//该环境下要设置的混合
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

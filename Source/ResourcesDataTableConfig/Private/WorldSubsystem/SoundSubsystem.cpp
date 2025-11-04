@@ -36,6 +36,7 @@ UAudioComponent* UBGMChannel::PushBGMOfInfo(FBGMInfo PushInfo)
 	if (SoundSubsystem)
 	{
 		SoundSubsystem->SomeChannelPopBGM(this);
+		SoundSubsystem->DisplaySubtitle(nullptr, CurAudioCom, CurBGMInfo.SoundSubtitle);
 	}
 
 	//推送新的混音器
@@ -47,6 +48,8 @@ UAudioComponent* UBGMChannel::PushBGMOfInfo(FBGMInfo PushInfo)
 		}
 	}
 
+	
+
 	//切换主BGM
 	if (!PushBGMInfo.SoundBase.IsNull())
 	{
@@ -54,97 +57,103 @@ UAudioComponent* UBGMChannel::PushBGMOfInfo(FBGMInfo PushInfo)
 		{
 			UResourceBPFunctionLibrary::SetParameterFromAudioComponent(CurAudioCom, PushBGMInfo.Parameters);
 			RefreshChannelVolume();
-			return CurAudioCom;
 		}
-
-		//该值不能大于AbsoluteBeatNum，这里进行处理
-		int32 FadeInOutBeatNum = PushBGMInfo.FadeInOutBeatNum = PushBGMInfo.FadeInOutBeatNum > PushBGMInfo.AbsoluteBeatNum ? PushBGMInfo.AbsoluteBeatNum : PushBGMInfo.FadeInOutBeatNum;
-
-		switch (PushBGMInfo.SwitchBMGType) {
-		case ESwitchBMGType::Fade:
+		else
 		{
-			//当前有没有音频正在播放
-			if (CurAudioCom && CurAudioCom->IsPlaying())
+			//该值不能大于AbsoluteBeatNum，这里进行处理
+			int32 FadeInOutBeatNum = PushBGMInfo.FadeInOutBeatNum = PushBGMInfo.FadeInOutBeatNum > PushBGMInfo.AbsoluteBeatNum ? PushBGMInfo.AbsoluteBeatNum : PushBGMInfo.FadeInOutBeatNum;
+			switch (PushBGMInfo.SwitchBMGType) {
+			case ESwitchBMGType::Fade:
 			{
-				CurAudioCom->FadeOut(CurBGMInfo.BGMFadeOutTime, 0.0f);
-				//新音效淡入之前的等待时间
-				float DelayTime = CurBGMInfo.BGMFadeOutTime * PushBGMInfo.DelayTimeScale;
-				if (DelayTime > 0.0f)
+				//当前有没有音频正在播放
+				if (CurAudioCom && CurAudioCom->IsPlaying())
 				{
-					GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, DelayTime);
+					CurAudioCom->FadeOut(CurBGMInfo.BGMFadeOutTime, 0.0f);
+					//新音效淡入之前的等待时间
+					float DelayTime = CurBGMInfo.BGMFadeOutTime * PushBGMInfo.DelayTimeScale;
+					if (DelayTime > 0.0f)
+					{
+						GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, DelayTime);
+					}
+					else
+					{
+						SetNewBackgroundSound();
+					}
 				}
 				else
 				{
 					SetNewBackgroundSound();
 				}
+				break;
 			}
-			else
+			case ESwitchBMGType::BPM:
 			{
-				SetNewBackgroundSound();
-			}
-			break;
-		}
-		case ESwitchBMGType::BPM:
-		{
-			if (CurAudioCom && CurAudioCom->IsPlaying())
-			{
-				float Interval = 60.0f / CurBGMInfo.BPM;//一拍的时间
-				float AbsoluteBeatInterval = Interval * CurBGMInfo.AbsoluteBeatNum;
-				float TimeDifference = UKismetMathLibrary::GenericPercent_FloatFloat(CurBGMPlayTime, AbsoluteBeatInterval);//距离下个绝对节点的时间差
-				if (UKismetMathLibrary::NearlyEqual_FloatFloat(AbsoluteBeatInterval - TimeDifference, 0.01, 0.0099))
+				if (CurAudioCom && CurAudioCom->IsPlaying())
 				{
-					SetNewBackgroundSound();
+					float Interval = 60.0f / CurBGMInfo.BPM;//一拍的时间
+					float AbsoluteBeatInterval = Interval * CurBGMInfo.AbsoluteBeatNum;
+					float TimeDifference = UKismetMathLibrary::GenericPercent_FloatFloat(CurBGMPlayTime, AbsoluteBeatInterval);//距离下个绝对节点的时间差
+					if (UKismetMathLibrary::NearlyEqual_FloatFloat(AbsoluteBeatInterval - TimeDifference, 0.01, 0.0099))
+					{
+						SetNewBackgroundSound();
+					}
+					else
+					{
+						GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, AbsoluteBeatInterval - TimeDifference);
+					}
 				}
 				else
 				{
-					GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, AbsoluteBeatInterval - TimeDifference);
+					SetNewBackgroundSound();
 				}
+				break;
 			}
-			else
+			case ESwitchBMGType::BPM_Fade:
 			{
-				SetNewBackgroundSound();
-			}
-			break;
-		}
-		case ESwitchBMGType::BPM_Fade:
-		{
-			if (CurAudioCom && CurAudioCom->IsPlaying())
-			{
-				float Interval = 60.0f / CurBGMInfo.BPM;//一拍的时间
-				float AbsoluteBeatInterval = Interval * CurBGMInfo.AbsoluteBeatNum;
-				float TimeDifference = UKismetMathLibrary::GenericPercent_FloatFloat(CurBGMPlayTime, AbsoluteBeatInterval);//距离下个绝对节点的时间差
-				BPM_Fade_FadeInOutTime = Interval * CurBGMInfo.FadeInOutBeatNum;//当前bgm的混出时间
-				float WaitTime = AbsoluteBeatInterval - TimeDifference - BPM_Fade_FadeInOutTime;//减去混合时间 剩下的 等待时间
-				if (UKismetMathLibrary::NearlyEqual_FloatFloat(WaitTime, 0.01, 0.0099))//没有混合时间了
+				if (CurAudioCom && CurAudioCom->IsPlaying())
 				{
-					CurAudioCom->SetSound(PushBGMInfo.SoundBase.LoadSynchronous());
-					CurAudioCom->Play();
-					SetParameter(PushBGMInfo);
+					float Interval = 60.0f / CurBGMInfo.BPM;//一拍的时间
+					float AbsoluteBeatInterval = Interval * CurBGMInfo.AbsoluteBeatNum;
+					float TimeDifference = UKismetMathLibrary::GenericPercent_FloatFloat(CurBGMPlayTime, AbsoluteBeatInterval);//距离下个绝对节点的时间差
+					BPM_Fade_FadeInOutTime = Interval * CurBGMInfo.FadeInOutBeatNum;//当前bgm的混出时间
+					float WaitTime = AbsoluteBeatInterval - TimeDifference - BPM_Fade_FadeInOutTime;//减去混合时间 剩下的 等待时间
+					if (UKismetMathLibrary::NearlyEqual_FloatFloat(WaitTime, 0.01, 0.0099))//没有混合时间了
+					{
+						CurAudioCom->SetSound(PushBGMInfo.SoundBase.LoadSynchronous());
+						CurAudioCom->Play();
+						SetParameter(PushBGMInfo);
+					}
+					else if (WaitTime < 0)//已经到达混合的节拍区域内了
+					{
+						SetNewBackgroundSound();
+					}
+					else//距离下个绝对节点仍有一段时间
+					{
+						GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, WaitTime);
+					}
 				}
-				else if (WaitTime < 0)//已经到达混合的节拍区域内了
+				else
 				{
 					SetNewBackgroundSound();
 				}
-				else//距离下个绝对节点仍有一段时间
-				{
-					GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, WaitTime);
-				}
+				break;
 			}
-			else
+			case ESwitchBMGType::Switch:
 			{
 				SetNewBackgroundSound();
 			}
-			break;
+			}
+			RefreshChannelVolume();
 		}
-		case ESwitchBMGType::Switch:
-		{
-			SetNewBackgroundSound();
-		}
-		}
-		RefreshChannelVolume();
-		return CurAudioCom;
 	}
-	return nullptr;
+
+	//字幕
+	if (SoundSubsystem)
+	{
+		SoundSubsystem->DisplaySubtitle(nullptr, CurAudioCom, CurBGMInfo.SoundSubtitle);
+	}
+
+	return CurAudioCom;
 }
 
 void UBGMChannel::SetNewBackgroundSound()
@@ -418,7 +427,7 @@ UAudioComponent* USoundSubsystem::PlaySound_2D(const UObject* WorldContextObject
 		{
 			SetParameter(AudioComponent, Sound);
 		}
-		DisplaySubtitle(Player, AudioComponent, Sound);
+		DisplaySubtitle(Player, AudioComponent, FRDTC_SoundSubtitle(Sound.IsDisplaySubtitle, Sound.IsUseSoundWaveSubtitleCue, Sound.SubtitleCue));
 		return AudioComponent;
 	}
 	return nullptr;
@@ -454,7 +463,7 @@ UAudioComponent* USoundSubsystem::PlaySound_Location(const UObject* WorldContext
 		{
 			SetParameter(AudioComponent, Sound);
 		}
-		DisplaySubtitle(Player, AudioComponent, Sound);
+		DisplaySubtitle(Player, AudioComponent, FRDTC_SoundSubtitle(Sound.IsDisplaySubtitle, Sound.IsUseSoundWaveSubtitleCue, Sound.SubtitleCue));
 		return AudioComponent;
 	}
 	return nullptr;
@@ -489,7 +498,7 @@ FVector Location, FRotator Rotation, EAttachLocation::Type LocationType,bool bSt
 		{
 			SetParameter(AudioComponent, Sound);
 		}
-		DisplaySubtitle(Player, AudioComponent, Sound);
+		DisplaySubtitle(Player, AudioComponent, FRDTC_SoundSubtitle(Sound.IsDisplaySubtitle, Sound.IsUseSoundWaveSubtitleCue, Sound.SubtitleCue));
 		return AudioComponent;
 	}
 	return nullptr;
@@ -664,13 +673,13 @@ void USoundSubsystem::SetParameter(UAudioComponent* AudioComponent, FResourcePro
 	UResourceBPFunctionLibrary::SetParameterFromAudioComponent(AudioComponent, SoundInfo.Parameters);
 }
 
-void USoundSubsystem::DisplaySubtitle(AActor* Player, UAudioComponent* AudioComponent, FResourceProperty_SoundInfo SoundInfo)
+void USoundSubsystem::DisplaySubtitle(AActor* Player, UAudioComponent* AudioComponent, FRDTC_SoundSubtitle SoundSubtitle)
 {
 	//AudioComponent->IsPlaying() 某些情况下的设置可能导致音频无法播放（例如设置了某个音频最多发声源），不播放的音频不应该出现字幕
-	if (AudioComponent && AudioComponent->IsPlaying() && SoundInfo.IsDisplaySubtitle)
+	if (AudioComponent && AudioComponent->IsPlaying() && SoundSubtitle.bIsDisplaySubtitle)
 	{
 		TArray<FSubtitleCue> SubtitleCue;
-		if (SoundInfo.IsUseSoundWaveSubtitleCue)
+		if (SoundSubtitle.bIsUseSoundWaveSubtitleCue)
 		{
 			AudioComponent->OnQueueSubtitles.BindUFunction(this,"GetSubtitles");
 			CurSubtitlesPlayer = Player;
@@ -678,7 +687,7 @@ void USoundSubsystem::DisplaySubtitle(AActor* Player, UAudioComponent* AudioComp
 		}
 		else
 		{
-			SubtitleCue = SoundInfo.SubtitleCue;
+			SubtitleCue = SoundSubtitle.SubtitleCue;
 		}
 
 		if (SubtitleCue.Num() > 0)

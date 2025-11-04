@@ -14,3 +14,10 @@ public:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 };
+
+
+
+/*
+* BGM和sound字幕单独出去结构体，并考虑富文本问题
+* 
+*/

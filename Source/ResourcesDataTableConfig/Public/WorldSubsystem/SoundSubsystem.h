@@ -209,7 +209,7 @@ public:
 
 	//处理字幕
 	UFUNCTION(BlueprintCallable)
-		void DisplaySubtitle(AActor* Player, UAudioComponent* AudioComponent, FResourceProperty_SoundInfo SoundInfo);
+		void DisplaySubtitle(AActor* Player, UAudioComponent* AudioComponent, FRDTC_SoundSubtitle SoundSubtitle);
 
 	//音效播放完成
 	UFUNCTION()
