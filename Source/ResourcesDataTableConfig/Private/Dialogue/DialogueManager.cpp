@@ -7,6 +7,7 @@
 #include "Components/AudioComponent.h"
 #include <ResourcesConfig.h>
 #include <Kismet/KismetSystemLibrary.h>
+#include <ActorComponent/SoundComponent.h>
 
 DEFINE_LOG_CATEGORY(Dialogue);
 
@@ -41,6 +42,16 @@ void UDialogueManager::ChangeAutoPlayState(bool IsAutoPlay)
 
 void UDialogueManager::StartDialogue(int32 StartDialogueIndex/* = 0*/)
 {
+	//设置对话名称
+	for (size_t i = 0; i < AllSpeaker.Num(); i++)
+	{
+		if (AllSpeaker[i].SpeakerActor && AllSpeaker[i].SpeakerActor->Implements<USoundPlayer>() &&//继承了该接口的Actor
+			SectionDialogueInfo.AllSpeakerName.IsValidIndex(i))//对话中配置了这个下标的名称
+		{
+			ISoundPlayer::Execute_SetDialogueName(AllSpeaker[i].SpeakerActor, SectionDialogueInfo.AllSpeakerName[i]);
+		}
+	}
+
 	AActor* OuterActor = Cast<AActor>(GetOuter());
 	if (OuterActor)
 	{

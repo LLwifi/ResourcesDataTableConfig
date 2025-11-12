@@ -63,16 +63,15 @@ void ASoundCollision::BeginPlay()
 	if (!ShapeComponent)
 	{
 		ShapeComponent = GetComponentByClass<UShapeComponent>();
-	}
-	
-	if (ShapeComponent)
-	{
-		BoxComponent = Cast<UBoxComponent>(ShapeComponent);
-		SphereComponent = Cast<USphereComponent>(ShapeComponent);
-		CapsuleComponent = Cast<UCapsuleComponent>(ShapeComponent);
+		if (ShapeComponent)
+		{
+			BoxComponent = Cast<UBoxComponent>(ShapeComponent);
+			SphereComponent = Cast<USphereComponent>(ShapeComponent);
+			CapsuleComponent = Cast<UCapsuleComponent>(ShapeComponent);
 
-		ShapeComponent->OnComponentBeginOverlap.AddDynamic(this, &ASoundCollision::OnBeginOverlap);
-		ShapeComponent->OnComponentEndOverlap.AddDynamic(this, &ASoundCollision::OnEndOverlap);
+			ShapeComponent->OnComponentBeginOverlap.AddDynamic(this, &ASoundCollision::OnBeginOverlap);
+			ShapeComponent->OnComponentEndOverlap.AddDynamic(this, &ASoundCollision::OnEndOverlap);
+		}
 	}
 
 	if (bBeginPlayCheckCollision)

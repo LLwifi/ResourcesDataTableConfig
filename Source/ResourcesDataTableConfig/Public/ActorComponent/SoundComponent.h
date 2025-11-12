@@ -27,6 +27,13 @@ public:
 	FText GetSoundPlayerName();
 	virtual FText GetSoundPlayerName_Implementation(){ return FText(); };
 
+	/*设置对话中该播放者的名称
+	* 当一个继承该接口的Actor，被作为【对话】角色设置时，对话信息中配置的角色名称会通过该函数进行设置
+	* UDialogueManager ——》StartDialogue()
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
+	void SetDialogueName(const FText& DialogueName);
+	virtual void SetDialogueName_Implementation(const FText& DialogueName) {};
 };
 
 /*
