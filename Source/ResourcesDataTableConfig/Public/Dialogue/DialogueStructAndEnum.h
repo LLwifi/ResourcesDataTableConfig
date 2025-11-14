@@ -117,6 +117,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	FName DialogueName;
 
+	//对话优先级
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 DialoguePriority = 0;
+
 	//全部演讲者姓名
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FText> AllSpeakerName;

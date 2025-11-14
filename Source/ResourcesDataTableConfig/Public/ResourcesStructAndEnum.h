@@ -488,15 +488,6 @@ struct FResourceProperty_SoundInfo : public FTableRowBase
 public:
 	FResourceProperty_SoundInfo() {}
 	FResourceProperty_SoundInfo(TSoftObjectPtr<USoundBase> _Sound) { Sound = _Sound; }
-	//FResourceProperty_SoundInfo(TMap<FString, TSoftObjectPtr<USoundBase>> _Sound) { Sound = _Sound; }
-	//bool Contains(FString Name) { return Sound.Contains(Name); };
-	//TSoftObjectPtr<USoundBase> operator[](FString Name) { return Contains(Name) ? Sound[Name] : nullptr; };
-	//TSoftObjectPtr<USoundBase> operator[](int32 Index)
-	//{
-	//	TArray<TSoftObjectPtr<USoundBase>> Value;
-	//	Sound.GenerateValueArray(Value);
-	//	return Value.IsValidIndex(Index) ? Value[Index] : nullptr;
-	//};
 
 public:
 	//默认音效

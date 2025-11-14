@@ -9,6 +9,8 @@
 ASoundActor::ASoundActor()
 {
 	SoundAssetTagAudioComponent = CreateDefaultSubobject<USoundAssetTagAudioComponent>(TEXT("SoundAssetTagAudioComponent"));
+	SetRootComponent(SoundAssetTagAudioComponent);
+	//SoundAssetTagAudioComponent->SetupAttachment(RootComponent);
 }
 
 void ASoundActor::BeginPlay()

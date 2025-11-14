@@ -151,6 +151,10 @@ public:
 	/*作为Mgr对象的标识*/
 	UPROPERTY(BlueprintReadOnly)
     int32 MgrID = 0;
+
+	/*播放的对话次数记录*/
+	UPROPERTY(BlueprintReadOnly)
+	TMap<FName,int32> DialoguePlayCount;
 	
 	UPROPERTY(BlueprintAssignable)
 	FDialogueEvent DialogueEnd;

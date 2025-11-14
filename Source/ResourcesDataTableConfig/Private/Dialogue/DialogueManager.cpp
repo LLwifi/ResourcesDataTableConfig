@@ -52,6 +52,16 @@ void UDialogueManager::StartDialogue(int32 StartDialogueIndex/* = 0*/)
 		}
 	}
 
+	//对话次数记录
+	if (DialoguePlayCount.Contains(SectionDialogueInfo.DialogueName))
+	{
+		DialoguePlayCount[SectionDialogueInfo.DialogueName]++;
+	}
+	else
+	{
+		DialoguePlayCount.Add(SectionDialogueInfo.DialogueName,1);
+	}
+
 	AActor* OuterActor = Cast<AActor>(GetOuter());
 	if (OuterActor)
 	{

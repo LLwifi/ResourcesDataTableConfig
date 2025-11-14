@@ -788,10 +788,10 @@ UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo(FBGMInfo PushInfo)
 		BGMChannel = NewObject<UBGMChannel>(this);
 		if (BGMChannel)
 		{
-			BGMChannel->PushBGMOfInfo(PushInfo);
-			AllBGMChannel.Add(PushInfo.BGMChannelName, BGMChannel);
 			BGMChannel->ChannelName = PushInfo.BGMChannelName;
 			BGMChannel->SoundSubsystem = this;
+			BGMChannel->PushBGMOfInfo(PushInfo);
+			AllBGMChannel.Add(PushInfo.BGMChannelName, BGMChannel);
 		}
 	}
 
