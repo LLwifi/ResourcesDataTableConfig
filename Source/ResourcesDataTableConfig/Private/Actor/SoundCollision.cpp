@@ -255,12 +255,12 @@ void ASoundCollision::SoundAction(FSoundCollisionAction SoundCollisionAction)
 		}
 		case ESoundActionType::Sound2D:
 		{
-			SoundSubsystem->PlaySound_2D_Array(this, this, SoundCollisionAction.ResourceProperty, FGameplayTag());
+			SoundSubsystem->PlaySound_2D_Array(this, this, SoundCollisionAction.ResourceProperty, FGameplayTag(), FRDTC_PlaySoundSetting());
 			break;
 		}
 		case ESoundActionType::Sound3D:
 		{
-			SoundSubsystem->PlaySound_Location_Array(this, this, SoundCollisionAction.ResourceProperty, FGameplayTag(), GetActorLocation());
+			SoundSubsystem->PlaySound_Location_Array(this, this, SoundCollisionAction.ResourceProperty, FGameplayTag(), GetActorLocation(), FRDTC_PlaySoundSetting());
 			break;
 		}
 		case ESoundActionType::PushBGM:

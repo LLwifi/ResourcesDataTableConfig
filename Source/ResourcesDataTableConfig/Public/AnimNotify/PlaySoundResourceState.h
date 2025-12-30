@@ -51,9 +51,7 @@ public:
 	FGameplayTag SoundTag;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true))
-	float VolumeMultiplier = 1.0f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true))
-	float PitchMultiplier = 1.0f;
+	FRDTC_PlaySoundSetting PlaySoundSetting;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true))
 	uint32 bFollow : 1 = true;

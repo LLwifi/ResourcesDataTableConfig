@@ -23,8 +23,6 @@
 UPlaySoundResource::UPlaySoundResource()
 	: Super()
 {
-	VolumeMultiplier = 1.f;
-	PitchMultiplier = 1.f;
 	CurPlaySoundResourceIndex = 0;
 #if WITH_EDITORONLY_DATA
 	NotifyColor = FColor(196, 142, 255, 255);
@@ -193,9 +191,18 @@ void UPlaySoundResource::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceB
  		if (World->WorldType == EWorldType::EditorPreview)
  		{
 			SoundComponent.Empty();
+			USoundConcurrency* ConcurrencySettings = nullptr;//并发性设置
+			for (const TSoftObjectPtr<USoundConcurrency>& SoftPtr : PlaySoundSetting.ConcurrencySettings)
+			{
+				if (USoundConcurrency* LoadedAsset = SoftPtr.LoadSynchronous())//尝试同步加载（确保获取到有效对象）
+				{
+					ConcurrencySettings = LoadedAsset;
+					break; //找到第一个有效的就退出
+				}
+			}
 			for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
 			{
-				UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), VolumeMultiplier, PitchMultiplier);
+				UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), PlaySoundSetting.VolumeMultiplier, PlaySoundSetting.PitchMultiplier, PlaySoundSetting.StartTime, ConcurrencySettings, PlaySoundSetting.bPersistAcrossLevelTransition, PlaySoundSetting.bAutoDestroy);
 				SoundComponent.Add(AudioComponent);
 				SetParameter(AudioComponent, UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex);
 			}
@@ -221,12 +228,12 @@ void UPlaySoundResource::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceB
  		{
  			if (bFollow)
  			{
-				SoundComponent = GetSoundSubsystem()->PlaySound_Attached_Array(MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp, PlaySoundResourceType != EPlaySoundResourceType::SimultaneouslyPlay, !UseAnimNotifyParameter, AttachName, FVector(ForceInit), FRotator(), EAttachLocation::SnapToTarget, false, VolumeMultiplier, PitchMultiplier);
+				SoundComponent = GetSoundSubsystem()->PlaySound_Attached_Array(MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp, PlaySoundSetting, PlaySoundResourceType != EPlaySoundResourceType::SimultaneouslyPlay, !UseAnimNotifyParameter, AttachName, FVector(ForceInit), FRotator(), EAttachLocation::SnapToTarget, false);
 
 			}
  			else
  			{
-				SoundComponent = GetSoundSubsystem()->PlaySound_Location_Array(World, MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp->GetComponentLocation(), PlaySoundResourceType != EPlaySoundResourceType::SimultaneouslyPlay, !UseAnimNotifyParameter, FRotator(), VolumeMultiplier, PitchMultiplier);
+				SoundComponent = GetSoundSubsystem()->PlaySound_Location_Array(World, MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp->GetComponentLocation(), PlaySoundSetting, PlaySoundResourceType != EPlaySoundResourceType::SimultaneouslyPlay, !UseAnimNotifyParameter, FRotator());
  			}
  		}
  	}

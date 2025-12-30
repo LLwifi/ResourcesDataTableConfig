@@ -114,18 +114,18 @@ void UDialogueManager::CurDialogueDelayFinished()
 		{
 			if (AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerActor)
 			{
-				CurAudioComponent = GetSoundSubsystem()->PlaySound_Attached(AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerActor, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerActor->GetRootComponent());
+				CurAudioComponent = GetSoundSubsystem()->PlaySound_Attached(AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerActor, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerActor->GetRootComponent(), FRDTC_PlaySoundSetting());
 			}
 			else
 			{
-				CurAudioComponent = GetSoundSubsystem()->PlaySound_Location(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerLocation);
+				CurAudioComponent = GetSoundSubsystem()->PlaySound_Location(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerLocation, FRDTC_PlaySoundSetting());
 			}
 			
 			UE_LOG(Dialogue, Log, TEXT("PlaySound_Attached"));
 		}
 		else
 		{
-			CurAudioComponent = GetSoundSubsystem()->PlaySound_2D(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag());
+			CurAudioComponent = GetSoundSubsystem()->PlaySound_2D(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), FRDTC_PlaySoundSetting());
 			UE_LOG(Dialogue, Log, TEXT("PlaySound_2D"));
 		}
 	}

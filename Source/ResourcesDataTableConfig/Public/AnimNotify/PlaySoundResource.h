@@ -120,13 +120,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify", meta = (ExposeOnSpawn = true, Categories = "Sound"))
 	FGameplayTag SoundTag;
 	
-	// Volume Multiplier
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AnimNotify", meta=(ExposeOnSpawn = true))
-	float VolumeMultiplier;
-
-	// Pitch Multiplier
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AnimNotify", meta=(ExposeOnSpawn = true))
-	float PitchMultiplier;
+	FRDTC_PlaySoundSetting PlaySoundSetting;
 
 	// If this sound should follow its owner
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimNotify")

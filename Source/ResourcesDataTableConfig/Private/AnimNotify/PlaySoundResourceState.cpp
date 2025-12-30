@@ -112,8 +112,24 @@ void UPlaySoundResourceState::SetParameter(UAudioComponent* AudioComponent, FNam
 
 void UPlaySoundResourceState::Play(USkeletalMeshComponent* MeshComp)
 {
+	UE_LOG(LogTemp, Log, TEXT("UPlaySoundResourceState----------Play"));
+	for (UAudioComponent*& AudioCom : SoundComponent)
+	{
+		if (AudioCom)
+		{
+			if (bIsFadeOut)
+			{
+				AudioCom->FadeOut(FadeOutTime, 0.0f);
+			}
+			else
+			{
+				AudioCom->Stop();
+			}
+		}
+	}
+
 	TArray<FResourceProperty_SoundAssetTag> UseSoundAssetTags = SoundAssetTag;
-	if (IsRandomPlayOneSound && UseSoundAssetTags.Num() > 1)
+	if (IsRandomPlayOneSound && UseSoundAssetTags.Num() > 1)//如果只有一个就无需再随机了
 	{
 		FResourceProperty_SoundAssetTag OneSoundAssetTag = UseSoundAssetTags[UKismetMathLibrary::RandomIntegerInRange(0, UseSoundAssetTags.Num() - 1)];
 		UseSoundAssetTags.Empty();
@@ -124,9 +140,18 @@ void UPlaySoundResourceState::Play(USkeletalMeshComponent* MeshComp)
 #if WITH_EDITORONLY_DATA
 	if (World && World->WorldType == EWorldType::EditorPreview)
 	{
+		USoundConcurrency* ConcurrencySettings = nullptr;//并发性设置
+		for (const TSoftObjectPtr<USoundConcurrency>& SoftPtr : PlaySoundSetting.ConcurrencySettings)
+		{
+			if (USoundConcurrency* LoadedAsset = SoftPtr.LoadSynchronous())//尝试同步加载（确保获取到有效对象）
+			{
+				ConcurrencySettings = LoadedAsset;
+				break; //找到第一个有效的就退出
+			}
+		}
 		for (int32 i = 0; i < UseSoundAssetTags.Num(); i++)
 		{
-			UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), VolumeMultiplier, PitchMultiplier);
+			UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(World, GetSound(UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex), PlaySoundSetting.VolumeMultiplier, PlaySoundSetting.PitchMultiplier, PlaySoundSetting.StartTime, ConcurrencySettings, PlaySoundSetting.bPersistAcrossLevelTransition, PlaySoundSetting.bAutoDestroy);
 			NewSoundComponent.Add(AudioComponent);
 			//SetParameter(AudioComponent, UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex);
 		}
@@ -136,20 +161,20 @@ void UPlaySoundResourceState::Play(USkeletalMeshComponent* MeshComp)
 	{
 		if (bFollow)
 		{
-			NewSoundComponent = GetSoundSubsystem()->PlaySound_Attached_Array(MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp, IsRandomPlayOneSound, !bUseAnimNotifyParameter, AttachName, FVector(ForceInit), FRotator(), EAttachLocation::SnapToTarget, false, VolumeMultiplier, PitchMultiplier);
+			NewSoundComponent = GetSoundSubsystem()->PlaySound_Attached_Array(MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp, PlaySoundSetting, IsRandomPlayOneSound, !bUseAnimNotifyParameter, AttachName, FVector(ForceInit), FRotator(), EAttachLocation::SnapToTarget, false);
 		}
 		else
 		{
-			NewSoundComponent = GetSoundSubsystem()->PlaySound_Location_Array(MeshComp->GetWorld(), MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp->GetComponentLocation(), IsRandomPlayOneSound, !bUseAnimNotifyParameter, FRotator(), VolumeMultiplier, PitchMultiplier);
+			NewSoundComponent = GetSoundSubsystem()->PlaySound_Location_Array(MeshComp->GetWorld(), MeshComp->GetOwner(), UseSoundAssetTags, SoundTag, MeshComp->GetComponentLocation(), PlaySoundSetting, IsRandomPlayOneSound, !bUseAnimNotifyParameter, FRotator());
 		}
 	}
 
-	bool NewSoundComponentIsNull = true;
+	//bool NewSoundComponentIsNull = true;
 	for (int32 i = 0; i < NewSoundComponent.Num(); i++)
 	{
 		if (NewSoundComponent[i])
 		{
-			NewSoundComponentIsNull = false;
+			//NewSoundComponentIsNull = false;
 			SetParameter(NewSoundComponent[i], UseSoundAssetTags[i].RowName, UseSoundAssetTags[i].ResourceNameOrIndex);
 			if (bIsFadeIn)
 			{
@@ -157,41 +182,23 @@ void UPlaySoundResourceState::Play(USkeletalMeshComponent* MeshComp)
 			}
 		}
 	}
-
-	if (!NewSoundComponentIsNull)
-	{
-		for (int32 i = 0; i < SoundComponent.Num(); i++)
-		{
-			if (SoundComponent[i])
-			{
-				if (bIsFadeOut)
-				{
-					SoundComponent[i]->FadeOut(FadeOutTime, 0.0f);
-				}
-				else
-				{
-					SoundComponent[i]->Stop();
-				}
-			}
-		}
-		SoundComponent.Empty();
-		SoundComponent = NewSoundComponent;
-	}
+	SoundComponent = NewSoundComponent;
 }
 
 void UPlaySoundResourceState::EndPlay()
 {
-	for (int32 i = 0; i < SoundComponent.Num(); i++)
+	UE_LOG(LogTemp, Log, TEXT("UPlaySoundResourceState----------EndPlay"));
+	for (UAudioComponent*& AudioCom : SoundComponent)
 	{
-		if (SoundComponent[i])
+		if (AudioCom)
 		{
 			if (bIsFadeOut)
 			{
-				SoundComponent[i]->FadeOut(FadeOutTime, 0.0f);
+				AudioCom->FadeOut(FadeOutTime, 0.0f);
 			}
 			else
 			{
-				SoundComponent[i]->Stop();
+				AudioCom->Stop();
 			}
 		}
 	}

@@ -400,8 +400,7 @@ void USoundSubsystem::Deinitialize()
 	Super::Deinitialize();
 }
 
-UAudioComponent* USoundSubsystem::PlaySound_2D(const UObject* WorldContextObject, AActor* Player, FName RowName, FString ResourceNameOrIndex, FGameplayTag SoundTag, bool IsUseParameter, float VolumeMultiplier, float PitchMultiplier,
-                                               float StartTime, USoundConcurrency* ConcurrencySettings, bool bPersistAcrossLevelTransition, bool bAutoDestroy)
+UAudioComponent* USoundSubsystem::PlaySound_2D(const UObject* WorldContextObject, AActor* Player, FName RowName, FString ResourceNameOrIndex, FGameplayTag SoundTag, FRDTC_PlaySoundSetting OverridePlaySoundSetting, bool IsUseParameter/* = true*/)
 {
 	FResourceProperty_SoundInfo Sound;
 	if (ResourceNameOrIndex.IsEmpty())
@@ -411,17 +410,22 @@ UAudioComponent* USoundSubsystem::PlaySound_2D(const UObject* WorldContextObject
 
 	if (UResourceBPFunctionLibrary::GetResourceFromString_Sound(RowName,ResourceNameOrIndex,Sound))
 	{
-		float Volume = GetOtherPlayerVolume(Player, VolumeMultiplier);
+		FRDTC_PlaySoundSetting UseSetting = Sound.PlaySoundSetting.Override(OverridePlaySoundSetting);
 
-		if (!ConcurrencySettings)//如果外部没有指定的话，尝试获取表里面配置的音效并发性设置
+		float Volume = GetOtherPlayerVolume(Player, UseSetting.VolumeMultiplier);
+
+		USoundConcurrency* ConcurrencySettings = nullptr;//并发性设置
+		for (const TSoftObjectPtr<USoundConcurrency>& SoftPtr : UseSetting.ConcurrencySettings)
 		{
-			ConcurrencySettings = Sound.SoundConcurrency.LoadSynchronous();
+			if (USoundConcurrency* LoadedAsset = SoftPtr.LoadSynchronous())//尝试同步加载（确保获取到有效对象）
+			{
+				ConcurrencySettings = LoadedAsset;
+				break; //找到第一个有效的就退出
+			}
 		}
 
-		//2D音效不需要衰减设置
-
 		UAudioComponent* AudioComponent = UGameplayStatics::SpawnSound2D(WorldContextObject, Sound.Sound.LoadSynchronous(), Volume,
-			PitchMultiplier,StartTime,ConcurrencySettings,bPersistAcrossLevelTransition,bAutoDestroy);
+			UseSetting.PitchMultiplier, UseSetting.StartTime, ConcurrencySettings, UseSetting.bPersistAcrossLevelTransition, UseSetting.bAutoDestroy);
 		AddAudioComponentToPlayer(Player, SoundTag, AudioComponent);
 		if (IsUseParameter)
 		{
@@ -433,8 +437,7 @@ UAudioComponent* USoundSubsystem::PlaySound_2D(const UObject* WorldContextObject
 	return nullptr;
 }
 
-UAudioComponent* USoundSubsystem::PlaySound_Location(const UObject* WorldContextObject, AActor* Player, FName RowName, FString ResourceNameOrIndex, FGameplayTag SoundTag, FVector Location, bool IsUseParameter, FRotator Rotation,
-	float VolumeMultiplier, float PitchMultiplier,float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, bool bAutoDestroy)
+UAudioComponent* USoundSubsystem::PlaySound_Location(const UObject* WorldContextObject, AActor* Player, FName RowName, FString ResourceNameOrIndex, FGameplayTag SoundTag, FVector Location, FRDTC_PlaySoundSetting OverridePlaySoundSetting, bool IsUseParameter, FRotator Rotation)
 {
 	FResourceProperty_SoundInfo Sound;
 	if (ResourceNameOrIndex.IsEmpty())
@@ -443,20 +446,22 @@ UAudioComponent* USoundSubsystem::PlaySound_Location(const UObject* WorldContext
 	}
 	if (UResourceBPFunctionLibrary::GetResourceFromString_Sound(RowName,ResourceNameOrIndex,Sound))
 	{
-		float Volume = GetOtherPlayerVolume(Player, VolumeMultiplier);
+		FRDTC_PlaySoundSetting UseSetting = Sound.PlaySoundSetting.Override(OverridePlaySoundSetting);
 
-		if (!ConcurrencySettings)//如果外部没有指定的话，获取表里面配置的音效并发性设置
-		{
-			ConcurrencySettings = Sound.SoundConcurrency.LoadSynchronous();
-		}
+		float Volume = GetOtherPlayerVolume(Player, UseSetting.VolumeMultiplier);
 
-		if (!AttenuationSettings)//如果外部没有指定的话，获取表里面配置的衰减
+		USoundConcurrency* ConcurrencySettings = nullptr;//并发性设置
+		for (const TSoftObjectPtr<USoundConcurrency>& SoftPtr : UseSetting.ConcurrencySettings)
 		{
-			AttenuationSettings = Sound.SoundAttenuation.LoadSynchronous();
+			if (USoundConcurrency* LoadedAsset = SoftPtr.LoadSynchronous())//尝试同步加载（确保获取到有效对象）
+			{
+				ConcurrencySettings = LoadedAsset;
+				break; //找到第一个有效的就退出
+			}
 		}
 
 		UAudioComponent* AudioComponent = UGameplayStatics::SpawnSoundAtLocation(WorldContextObject,Sound.Sound.LoadSynchronous(),Location,Rotation, Volume,
-			PitchMultiplier,StartTime,AttenuationSettings,ConcurrencySettings,bAutoDestroy);
+			UseSetting.PitchMultiplier, UseSetting.StartTime, UseSetting.AttenuationSettings.LoadSynchronous(),ConcurrencySettings, UseSetting.bAutoDestroy);
 
 		AddAudioComponentToPlayer(Player, SoundTag, AudioComponent);
 		if (IsUseParameter)
@@ -469,8 +474,8 @@ UAudioComponent* USoundSubsystem::PlaySound_Location(const UObject* WorldContext
 	return nullptr;
 }
 
-UAudioComponent* USoundSubsystem::PlaySound_Attached(AActor* Player, FName RowName, FString ResourceNameOrIndex, FGameplayTag SoundTag,  USceneComponent* AttachToComponent, bool IsUseParameter, FName AttachPointName,
-FVector Location, FRotator Rotation, EAttachLocation::Type LocationType,bool bStopWhenAttachedToDestroyed, float VolumeMultiplier, float PitchMultiplier, float StartTime,USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, bool bAutoDestroy)
+UAudioComponent* USoundSubsystem::PlaySound_Attached(AActor* Player, FName RowName, FString ResourceNameOrIndex, FGameplayTag SoundTag,  USceneComponent* AttachToComponent, FRDTC_PlaySoundSetting OverridePlaySoundSetting
+, bool IsUseParameter, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType,bool bStopWhenAttachedToDestroyed)
 {
 	FResourceProperty_SoundInfo Sound;
 	if (ResourceNameOrIndex.IsEmpty())
@@ -479,20 +484,22 @@ FVector Location, FRotator Rotation, EAttachLocation::Type LocationType,bool bSt
 	}
 	if (UResourceBPFunctionLibrary::GetResourceFromString_Sound(RowName,ResourceNameOrIndex,Sound))
 	{
-		float Volume = GetOtherPlayerVolume(Player, VolumeMultiplier);
+		FRDTC_PlaySoundSetting UseSetting = Sound.PlaySoundSetting.Override(OverridePlaySoundSetting);
 
-		if (!ConcurrencySettings)//如果外部没有指定的话，尝试获取表里面配置的音效并发性设置
-		{
-			ConcurrencySettings = Sound.SoundConcurrency.LoadSynchronous();
-		}
+		float Volume = GetOtherPlayerVolume(Player, UseSetting.VolumeMultiplier);
 
-		if (!AttenuationSettings)//如果外部没有指定的话，获取表里面配置的衰减
+		USoundConcurrency* ConcurrencySettings = nullptr;//并发性设置
+		for (const TSoftObjectPtr<USoundConcurrency>& SoftPtr : UseSetting.ConcurrencySettings)
 		{
-			AttenuationSettings = Sound.SoundAttenuation.LoadSynchronous();
+			if (USoundConcurrency* LoadedAsset = SoftPtr.LoadSynchronous())//尝试同步加载（确保获取到有效对象）
+			{
+				ConcurrencySettings = LoadedAsset;
+				break; //找到第一个有效的就退出
+			}
 		}
 
 		UAudioComponent* AudioComponent = UGameplayStatics::SpawnSoundAttached(Sound.Sound.LoadSynchronous(),AttachToComponent,AttachPointName,Location,Rotation,LocationType,
-		bStopWhenAttachedToDestroyed, Volume,PitchMultiplier,StartTime,AttenuationSettings,ConcurrencySettings,bAutoDestroy);
+		bStopWhenAttachedToDestroyed, Volume, UseSetting.PitchMultiplier, UseSetting.StartTime, UseSetting.AttenuationSettings.LoadSynchronous(),ConcurrencySettings, UseSetting.bAutoDestroy);
 		AddAudioComponentToPlayer(Player, SoundTag, AudioComponent);
 		if (IsUseParameter)
 		{
@@ -504,7 +511,7 @@ FVector Location, FRotator Rotation, EAttachLocation::Type LocationType,bool bSt
 	return nullptr;
 }
 
-TArray<UAudioComponent*> USoundSubsystem::PlaySound_2D_Array(const UObject* WorldContextObject, AActor* Player, TArray<FResourceProperty_SoundAssetTag> SoundAssetTags, FGameplayTag SoundTag, bool IsRandomPlayOneSound, bool IsUseParameter, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundConcurrency* ConcurrencySettings, bool bPersistAcrossLevelTransition, bool bAutoDestroy)
+TArray<UAudioComponent*> USoundSubsystem::PlaySound_2D_Array(const UObject* WorldContextObject, AActor* Player, TArray<FResourceProperty_SoundAssetTag> SoundAssetTags, FGameplayTag SoundTag, FRDTC_PlaySoundSetting OverridePlaySoundSetting, bool IsRandomPlayOneSound/* = true*/, bool IsUseParameter/* = true*/)
 {
 	TArray<UAudioComponent*> AudioComponents;
 	if (SoundAssetTags.Num() > 0)
@@ -518,13 +525,13 @@ TArray<UAudioComponent*> USoundSubsystem::PlaySound_2D_Array(const UObject* Worl
 
 		for (int32 i = 0; i < SoundAssetTags.Num(); i++)
 		{
-			AudioComponents.Add(PlaySound_2D(WorldContextObject,Player, SoundAssetTags[i].RowName, SoundAssetTags[i].ResourceNameOrIndex,SoundTag,IsUseParameter,VolumeMultiplier,PitchMultiplier,StartTime,ConcurrencySettings,bPersistAcrossLevelTransition,bAutoDestroy));
+			AudioComponents.Add(PlaySound_2D(WorldContextObject, Player, SoundAssetTags[i].RowName, SoundAssetTags[i].ResourceNameOrIndex, SoundTag, OverridePlaySoundSetting, IsUseParameter));
 		}
 	}
 	return AudioComponents;
 }
 
-TArray<UAudioComponent*> USoundSubsystem::PlaySound_Location_Array(const UObject* WorldContextObject, AActor* Player, TArray<FResourceProperty_SoundAssetTag> SoundAssetTags, FGameplayTag SoundTag, FVector Location, bool IsRandomPlayOneSound, bool IsUseParameter, FRotator Rotation, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, bool bAutoDestroy)
+TArray<UAudioComponent*> USoundSubsystem::PlaySound_Location_Array(const UObject* WorldContextObject, AActor* Player, TArray<FResourceProperty_SoundAssetTag> SoundAssetTags, FGameplayTag SoundTag, FVector Location, FRDTC_PlaySoundSetting OverridePlaySoundSetting, bool IsRandomPlayOneSound, bool IsUseParameter, FRotator Rotation)
 {
 	TArray<UAudioComponent*> AudioComponents;
 	if (SoundAssetTags.Num() > 0)
@@ -538,13 +545,13 @@ TArray<UAudioComponent*> USoundSubsystem::PlaySound_Location_Array(const UObject
 
 		for (int32 i = 0; i < SoundAssetTags.Num(); i++)
 		{
-			AudioComponents.Add(PlaySound_Location(WorldContextObject, Player, SoundAssetTags[i].RowName, SoundAssetTags[i].ResourceNameOrIndex, SoundTag,Location, IsUseParameter,Rotation, VolumeMultiplier, PitchMultiplier, StartTime,AttenuationSettings, ConcurrencySettings, bAutoDestroy));
+			AudioComponents.Add(PlaySound_Location(WorldContextObject, Player, SoundAssetTags[i].RowName, SoundAssetTags[i].ResourceNameOrIndex, SoundTag, Location, OverridePlaySoundSetting, IsUseParameter));
 		}
 	}
 	return AudioComponents;
 }
 
-TArray<UAudioComponent*> USoundSubsystem::PlaySound_Attached_Array(AActor* Player, TArray<FResourceProperty_SoundAssetTag> SoundAssetTags, FGameplayTag SoundTag, USceneComponent* AttachToComponent, bool IsRandomPlayOneSound, bool IsUseParameter, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bStopWhenAttachedToDestroyed, float VolumeMultiplier, float PitchMultiplier, float StartTime, USoundAttenuation* AttenuationSettings, USoundConcurrency* ConcurrencySettings, bool bAutoDestroy)
+TArray<UAudioComponent*> USoundSubsystem::PlaySound_Attached_Array(AActor* Player, TArray<FResourceProperty_SoundAssetTag> SoundAssetTags, FGameplayTag SoundTag, USceneComponent* AttachToComponent, FRDTC_PlaySoundSetting OverridePlaySoundSetting, bool IsRandomPlayOneSound, bool IsUseParameter, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bStopWhenAttachedToDestroyed)
 {
 	TArray<UAudioComponent*> AudioComponents;
 	if (SoundAssetTags.Num() > 0)
@@ -558,7 +565,7 @@ TArray<UAudioComponent*> USoundSubsystem::PlaySound_Attached_Array(AActor* Playe
 
 		for (int32 i = 0; i < SoundAssetTags.Num(); i++)
 		{
-			AudioComponents.Add(PlaySound_Attached(Player, SoundAssetTags[i].RowName, SoundAssetTags[i].ResourceNameOrIndex, SoundTag,AttachToComponent, IsUseParameter,AttachPointName,Location,Rotation,LocationType,bStopWhenAttachedToDestroyed, VolumeMultiplier, PitchMultiplier, StartTime,AttenuationSettings, ConcurrencySettings, bAutoDestroy));
+			AudioComponents.Add(PlaySound_Attached(Player, SoundAssetTags[i].RowName, SoundAssetTags[i].ResourceNameOrIndex, SoundTag,AttachToComponent, OverridePlaySoundSetting, IsUseParameter,AttachPointName,Location,Rotation,LocationType,bStopWhenAttachedToDestroyed));
 		}
 	}
 	return AudioComponents;
@@ -944,7 +951,7 @@ void USoundSubsystem::SoundEventProcess(FSoundEventProcess& ProcessInfo, TArray<
 		{
 		case ESoundAssetType::Sound:
 		{
-			SoundComs.Add(PlaySound_2D(this, UGameplayStatics::GetPlayerPawn(this, 0), SoundAssetTag.RowName, SoundAssetTag.ResourceNameOrIndex, FGameplayTag()));
+			SoundComs.Add(PlaySound_2D(this, UGameplayStatics::GetPlayerPawn(this, 0), SoundAssetTag.RowName, SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), FRDTC_PlaySoundSetting()));
 			break;
 		}
 		case ESoundAssetType::BGM:

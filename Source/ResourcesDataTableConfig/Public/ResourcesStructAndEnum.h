@@ -480,6 +480,98 @@ public:
 	TArray<FSubtitleCue> SubtitleCue;
 };
 
+//(调用)播放声音时的设置
+USTRUCT(BlueprintType)
+struct FRDTC_PlaySoundSetting
+{
+	GENERATED_BODY()
+public:
+	FRDTC_PlaySoundSetting(){}
+	FRDTC_PlaySoundSetting(bool bIsOverride)
+	{
+		bIsOverride_VolumeMultiplier = bIsOverride;
+		bIsOverride_PitchMultiplier = bIsOverride;
+		bIsOverride_StartTime = bIsOverride;
+		bIsOverride_ConcurrencySettings = bIsOverride;
+		bIsOverride_AttenuationSettings = bIsOverride;
+		bIsOverride_PersistAcrossLevelTransition = bIsOverride;
+		bIsOverride_AutoDestroy = bIsOverride;
+	}
+	//尝试被另外的设置信息重载
+	FRDTC_PlaySoundSetting Override(const FRDTC_PlaySoundSetting& OverrideInfo)
+	{
+		if (OverrideInfo.bIsOverride_VolumeMultiplier)
+		{
+			VolumeMultiplier = OverrideInfo.VolumeMultiplier;
+		}
+		if (OverrideInfo.bIsOverride_PitchMultiplier)
+		{
+			PitchMultiplier = OverrideInfo.PitchMultiplier;
+		}
+		if (OverrideInfo.bIsOverride_StartTime)
+		{
+			StartTime = OverrideInfo.StartTime;
+		}
+		if (OverrideInfo.bIsOverride_ConcurrencySettings)
+		{
+			ConcurrencySettings = OverrideInfo.ConcurrencySettings;
+		}
+		if (OverrideInfo.bIsOverride_AttenuationSettings)
+		{
+			AttenuationSettings = OverrideInfo.AttenuationSettings;
+		}
+		if (OverrideInfo.bIsOverride_PersistAcrossLevelTransition)
+		{
+			bPersistAcrossLevelTransition = OverrideInfo.bPersistAcrossLevelTransition;
+		}
+		if (OverrideInfo.bIsOverride_AutoDestroy)
+		{
+			bAutoDestroy = OverrideInfo.bAutoDestroy;
+		}
+
+		return *this;
+	}
+	
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverride_VolumeMultiplier = false;
+	//乘以音量的线性标量
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverride_VolumeMultiplier"))
+	float VolumeMultiplier = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverride_PitchMultiplier = false;
+	//乘以音高的线性标量
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverride_PitchMultiplier"))
+	float PitchMultiplier = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverride_StartTime = false;
+	//音效开始播放的时间
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverride_StartTime"))
+	float StartTime = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverride_ConcurrencySettings = false;
+	//音效的并发性设置
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverride_ConcurrencySettings"))
+	TSet<TSoftObjectPtr<USoundConcurrency>> ConcurrencySettings;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverride_AttenuationSettings = false;
+	//音效的衰减
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverride_AttenuationSettings"))
+	TSoftObjectPtr<USoundAttenuation> AttenuationSettings;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverride_PersistAcrossLevelTransition = false;
+	//是否在关卡切换时该声音会继续播放直到自然结束
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverride_PersistAcrossLevelTransition"))
+	bool bPersistAcrossLevelTransition = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverride_AutoDestroy = false;
+	//音效停播（完成或停止）后是否自动清理
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverride_AutoDestroy"))
+	bool bAutoDestroy = true;
+};
+
 //声音信息
 USTRUCT(BlueprintType)
 struct FResourceProperty_SoundInfo : public FTableRowBase
@@ -494,13 +586,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSoftObjectPtr<USoundBase> Sound;
 
-	//是否要重载音效的并发性设置 后续扩展成数组
+	//(调用)播放声音时的设置
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSoftObjectPtr<USoundConcurrency> SoundConcurrency;
+		FRDTC_PlaySoundSetting PlaySoundSetting;
 
-	//是否要重载音效的衰减
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSoftObjectPtr<USoundAttenuation> SoundAttenuation;
+	////是否要重载音效的并发性设置 后续扩展成数组
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//TSoftObjectPtr<USoundConcurrency> SoundConcurrency;
+
+	////是否要重载音效的衰减
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//TSoftObjectPtr<USoundAttenuation> SoundAttenuation;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		FSoundParameters Parameters;
@@ -552,6 +648,28 @@ public:
 				}
 
 				pair.Value.Parameters.SetAudioParameterParamNameOfMapKey();
+
+				//if (!pair.Value.SoundAttenuation.IsNull())
+				//{
+				//	pair.Value.PlaySoundSetting.bIsOverride_AttenuationSettings = true;
+				//	pair.Value.PlaySoundSetting.AttenuationSettings = pair.Value.SoundAttenuation;
+				//}
+				//else
+				//{
+				//	pair.Value.PlaySoundSetting.bIsOverride_AttenuationSettings = false;
+				//	pair.Value.PlaySoundSetting.AttenuationSettings = nullptr;
+				//}
+
+				//if (!pair.Value.SoundConcurrency.IsNull())
+				//{
+				//	pair.Value.PlaySoundSetting.bIsOverride_ConcurrencySettings = true;
+				//	pair.Value.PlaySoundSetting.ConcurrencySettings.Add(pair.Value.SoundConcurrency);
+				//}
+				//else
+				//{
+				//	pair.Value.PlaySoundSetting.bIsOverride_ConcurrencySettings = false;
+				//	pair.Value.PlaySoundSetting.ConcurrencySettings.Remove(pair.Value.SoundConcurrency);
+				//}
 			}
 		}
 		DefaultParameters.SetAudioParameterParamNameOfMapKey();

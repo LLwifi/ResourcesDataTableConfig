@@ -43,12 +43,15 @@ void USoundAssetTagAudioComponent::Refresh()
 
 		if (ConcurrencySet.Num() <= 0)//如果外部没有指定的话，尝试获取表里面配置的音效并发性设置
 		{
-			ConcurrencySet.Add(SoundInfo.SoundConcurrency.LoadSynchronous());
+			for (TSoftObjectPtr<USoundConcurrency>& Concurrency : SoundInfo.PlaySoundSetting.ConcurrencySettings)
+			{
+				ConcurrencySet.Add(Concurrency.LoadSynchronous());
+			}
 		}
 
 		if (!AttenuationSettings)//如果外部没有指定的话，获取表里面配置的衰减
 		{
-			SetAttenuationSettings(SoundInfo.SoundAttenuation.LoadSynchronous());
+			SetAttenuationSettings(SoundInfo.PlaySoundSetting.AttenuationSettings.LoadSynchronous());
 		}
 		break;
 	}
