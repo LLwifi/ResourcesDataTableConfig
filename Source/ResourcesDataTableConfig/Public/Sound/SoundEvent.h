@@ -7,37 +7,6 @@
 #include "../../../../../CommonCompare/Source/CommonCompare/Public/CC_StructAndEnum.h"
 #include "SoundEvent.generated.h"
 
-
-
-class USoundControlBusMix;
-class USoundModulationParameter;
-
-USTRUCT(BlueprintType)
-struct FSoundEventAudioModulationInfo : public FTableRowBase
-{
-	GENERATED_BODY()
-public:
-	//失活全部
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Deactivate", meta = (PinHiddenByDefault, InlineEditConditionToggle))
-	bool bIsDeactivateAllBusMixes = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "!bIsDeactivateAllBusMixes"), Category = "Deactivate")
-	TSoftObjectPtr<USoundControlBusMix> DeactivateMix;
-
-	//调制总线
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Activate")
-	TSoftObjectPtr<USoundControlBusMix> Mix;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Activate")
-	FString AddressFilter;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Activate")
-	TSubclassOf<USoundModulationParameter> ParamClassFilter;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Activate")
-	TSoftObjectPtr <USoundModulationParameter> ParamFilter;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Activate")
-	float Value;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Activate")
-	float FadeTime;
-};
-
 //声音事件的处理
 USTRUCT(BlueprintType)
 struct FSoundEventProcess
@@ -55,7 +24,7 @@ public:
 
 	//调制信息
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FSoundEventAudioModulationInfo AudioModulationInfo;
+	FAudioModulationInfo AudioModulationInfo;
 };
 
 /*音效事件的对比对照结构体

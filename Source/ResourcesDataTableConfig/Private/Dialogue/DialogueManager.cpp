@@ -5,11 +5,11 @@
 #include <WorldSubsystem/SoundSubsystem.h>
 #include <Subsystems/SubsystemBlueprintLibrary.h>
 #include "Components/AudioComponent.h"
-#include <ResourcesConfig.h>
 #include <Kismet/KismetSystemLibrary.h>
 #include <ActorComponent/SoundComponent.h>
+#include "SoundControlBusMix.h"
 
-DEFINE_LOG_CATEGORY(Dialogue);
+//DEFINE_LOG_CATEGORY(Dialogue);
 
 void UDialogueManager::SetSpeaker(TArray<FDialogueSpeaker> Speakers)
 {
@@ -79,7 +79,7 @@ void UDialogueManager::StartDialogue(int32 StartDialogueIndex/* = 0*/)
 				DelayTime += Info.GetTotalDuration();
 			}
 			GetWorld()->GetTimerManager().SetTimer(ServerDialogueFinishedTimer, this, &UDialogueManager::EndDialogue, DelayTime);
-			UE_LOG(Dialogue, Log, TEXT("StartDialogue_Server DelayTime = %f"), DelayTime);
+			//UE_LOG(Dialogue, Log, TEXT("StartDialogue_Server DelayTime = %f"), DelayTime);
 		}
 	}
 	else//客户端
@@ -93,7 +93,13 @@ void UDialogueManager::CurDialogueFinished()
 	DialoguePlayState = EDialoguePlayState::EndPlay;
 	OneDialogueEvent.Broadcast(this, DialogueIndex, DialoguePlayState);
 	TriggerDialogueSoundEvent();
-	UE_LOG(Dialogue, Log, TEXT("CurDialogueFinished CallBack"));
+	//UE_LOG(Dialogue, Log, TEXT("CurDialogueFinished CallBack"));
+
+	//还原Modulation
+	FAudioModulationInfo AudioModulationInfo = GetAudioModulationInfo();
+	AudioModulationInfo.Value = 1.0f;//1.0f表示不处理，还原
+	GetSoundSubsystem()->SetAudioModulationInfo(AudioModulationInfo);
+
 	if(bIsAutoPlayNextDialogue)
 	{
 		NextDialogue();
@@ -105,7 +111,7 @@ void UDialogueManager::CurDialogueDelayFinished()
 	DialoguePlayState = EDialoguePlayState::StartPlay;
 	OneDialogueEvent.Broadcast(this, DialogueIndex, DialoguePlayState);
 	TriggerDialogueSoundEvent();
-	UE_LOG(Dialogue, Log, TEXT("CurDialogueDelayFinished"));
+	//UE_LOG(Dialogue, Log, TEXT("CurDialogueDelayFinished"));
 	EndCurOneDialogue();
 
 	if (GetSoundSubsystem())
@@ -121,12 +127,12 @@ void UDialogueManager::CurDialogueDelayFinished()
 				CurAudioComponent = GetSoundSubsystem()->PlaySound_Location(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), AllSpeaker[CurOneDialogueInfo.SpeakerIndex].SpeakerLocation, FRDTC_PlaySoundSetting());
 			}
 			
-			UE_LOG(Dialogue, Log, TEXT("PlaySound_Attached"));
+			//UE_LOG(Dialogue, Log, TEXT("PlaySound_Attached"));
 		}
 		else
 		{
 			CurAudioComponent = GetSoundSubsystem()->PlaySound_2D(this, nullptr, CurOneDialogueInfo.SoundAssetTag.RowName, CurOneDialogueInfo.SoundAssetTag.ResourceNameOrIndex, FGameplayTag(), FRDTC_PlaySoundSetting());
-			UE_LOG(Dialogue, Log, TEXT("PlaySound_2D"));
+			//UE_LOG(Dialogue, Log, TEXT("PlaySound_2D"));
 		}
 	}
 
@@ -135,16 +141,20 @@ void UDialogueManager::CurDialogueDelayFinished()
 		if (CurOneDialogueInfo.Duraction > 0)
 		{
 			GetWorld()->GetTimerManager().SetTimer(CurDialogueFinishedTimer, this, &UDialogueManager::CurDialogueFinished, CurOneDialogueInfo.Duraction);
-			UE_LOG(Dialogue, Log, TEXT("CurDialogueFinishedTimer = %f"), CurOneDialogueInfo.Duraction);
+			//UE_LOG(Dialogue, Log, TEXT("CurDialogueFinishedTimer = %f"), CurOneDialogueInfo.Duraction);
 		}
 		else
 		{
 			FScriptDelegate AudioFinished;
 			AudioFinished.BindUFunction(this, "CurDialogueFinished");
 			CurAudioComponent->OnAudioFinished.Add(AudioFinished);
-			UE_LOG(Dialogue, Log, TEXT("BindFinished"));
+			//UE_LOG(Dialogue, Log, TEXT("BindFinished"));
 		}
 	}
+
+	//设置Modulation
+	FAudioModulationInfo AudioModulationInfo = GetAudioModulationInfo();
+	/*ActivateBusMix = */GetSoundSubsystem()->SetAudioModulationInfo(AudioModulationInfo);
 }
 
 void UDialogueManager::NextDialogue()
@@ -153,13 +163,13 @@ void UDialogueManager::NextDialogue()
 	DialoguePlayState = EDialoguePlayState::Delay;
 	OneDialogueEvent.Broadcast(this, DialogueIndex, DialoguePlayState);
 	TriggerDialogueSoundEvent();
-	UE_LOG(Dialogue, Log, TEXT("NextDialogue DialogueIndex = %d"), DialogueIndex);
+	//UE_LOG(Dialogue, Log, TEXT("NextDialogue DialogueIndex = %d"), DialogueIndex);
 	if (SectionDialogueInfo.GetOneDialogueInfoFromIndex(DialogueIndex, CurOneDialogueInfo))
 	{
 		if (CurOneDialogueInfo.DelayTime > 0)
 		{
 			GetWorld()->GetTimerManager().SetTimer(CurDialogueDelayFinishedTimer, this, &UDialogueManager::CurDialogueDelayFinished, CurOneDialogueInfo.DelayTime);
-			UE_LOG(Dialogue, Log, TEXT("NextDialogue DelayTime = %f"), CurOneDialogueInfo.DelayTime);
+			//UE_LOG(Dialogue, Log, TEXT("NextDialogue DelayTime = %f"), CurOneDialogueInfo.DelayTime);
 		}
 		else
 		{
@@ -177,7 +187,7 @@ void UDialogueManager::EndDialogue()
 	bDialogueIsEnd = true;
 	EndCurOneDialogue();
 	DialogueEnd.Broadcast(this);
-	UE_LOG(Dialogue, Log, TEXT("EndDialogue"));
+	//UE_LOG(Dialogue, Log, TEXT("EndDialogue"));
 }
 
 void UDialogueManager::EndCurOneDialogue()
@@ -235,5 +245,18 @@ bool UDialogueManager::DialogueIsPlaying()
 bool UDialogueManager::DialogueIsEnd()
 {
 	return bDialogueIsEnd;
+}
+
+FAudioModulationInfo UDialogueManager::GetAudioModulationInfo()
+{
+	if (CurOneDialogueInfo.bIsOverrideModulationInfo && CurOneDialogueInfo.OneDialogueOverrideModulationInfo.Mix.IsValid())
+	{
+		return CurOneDialogueInfo.OneDialogueOverrideModulationInfo;
+	}
+	else if (SectionDialogueInfo.bIsOverrideModulationInfo && SectionDialogueInfo.SectionOverrideDialogueModulationInfo.Mix.IsValid())
+	{
+		return SectionDialogueInfo.SectionOverrideDialogueModulationInfo;
+	}
+	return UResourcesConfig::GetInstance()->DefaultDialogueModulationInfo;
 }
 

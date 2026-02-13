@@ -3,7 +3,6 @@
 #include "CoreMinimal.h"
 #include <Engine/DataTable.h>
 #include "ResourcesConfig.h"
-#include <Sound/SoundEnvironmentConfig.h>
 #include "ResourcesStructAndEnum.generated.h"
 
 USTRUCT(BlueprintType)
@@ -648,28 +647,6 @@ public:
 				}
 
 				pair.Value.Parameters.SetAudioParameterParamNameOfMapKey();
-
-				//if (!pair.Value.SoundAttenuation.IsNull())
-				//{
-				//	pair.Value.PlaySoundSetting.bIsOverride_AttenuationSettings = true;
-				//	pair.Value.PlaySoundSetting.AttenuationSettings = pair.Value.SoundAttenuation;
-				//}
-				//else
-				//{
-				//	pair.Value.PlaySoundSetting.bIsOverride_AttenuationSettings = false;
-				//	pair.Value.PlaySoundSetting.AttenuationSettings = nullptr;
-				//}
-
-				//if (!pair.Value.SoundConcurrency.IsNull())
-				//{
-				//	pair.Value.PlaySoundSetting.bIsOverride_ConcurrencySettings = true;
-				//	pair.Value.PlaySoundSetting.ConcurrencySettings.Add(pair.Value.SoundConcurrency);
-				//}
-				//else
-				//{
-				//	pair.Value.PlaySoundSetting.bIsOverride_ConcurrencySettings = false;
-				//	pair.Value.PlaySoundSetting.ConcurrencySettings.Remove(pair.Value.SoundConcurrency);
-				//}
 			}
 		}
 		DefaultParameters.SetAudioParameterParamNameOfMapKey();

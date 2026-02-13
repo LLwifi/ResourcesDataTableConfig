@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include <ResourcesStructAndEnum.h>
+#include "Actor/RDTC_AudioVolume.h"
 #include "IPropertyTypeCustomization.h"
 
 
@@ -65,4 +66,36 @@ public:
 
     //反射出来的结构体数据
     FResourceProperty_SoundAssetTag* SoundAssetTag;
+};
+
+class RESOURCESDATATABLECONFIGEDITOR_API IRDTC_AudioVolumeInfoHandleCustomization : public IPropertyTypeCustomization
+{
+public:
+    static TSharedRef<IPropertyTypeCustomization> MakeInstance()
+    {
+        return MakeShareable(new IRDTC_AudioVolumeInfoHandleCustomization());
+    }
+
+    virtual void CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils) override;
+
+    virtual void CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils) override;
+
+    //改变选择的回调
+    void OnSelectionChanged_RowName(TSharedPtr<FString> InItem, ESelectInfo::Type InSelectionInfo);
+    //每个下拉选择框的样式
+    TSharedRef<SWidget> OnGenerateWidget_RowName(TSharedPtr<FString> InItem);
+
+public:
+
+    //行名称
+    TSharedPtr<IPropertyHandle> RowNameHandle;
+    TArray<TSharedPtr<FString>> RowNames;
+    TSharedPtr<class SSearchableComboBox> SearchableComboBox_RowName;
+    TSharedPtr<class STextBlock> ComboBox_Name_Text;
+
+    //反射出来的结构体数据
+    FRDTC_AudioVolumeInfoHandle* InfoHandle;
+
+    //对应的数据表
+    TSharedPtr<IPropertyHandle> DataTableHandle;
 };

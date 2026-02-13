@@ -964,26 +964,29 @@ void USoundSubsystem::SoundEventProcess(FSoundEventProcess& ProcessInfo, TArray<
 		}
 	}
 
-	SoundEventAudioModulation(ProcessInfo.AudioModulationInfo);
+	SetAudioModulationInfo(ProcessInfo.AudioModulationInfo);
 }
 
-void USoundSubsystem::SoundEventAudioModulation(FSoundEventAudioModulationInfo& ModulationInfo)
+USoundControlBusMix* USoundSubsystem::SetAudioModulationInfo(FAudioModulationInfo& ModulationInfo)
 {
+	USoundControlBusMix* ActivateBusMix = nullptr;
 	if (ModulationInfo.bIsDeactivateAllBusMixes)
 	{
 		UAudioModulationStatics::DeactivateAllBusMixes(this);
 	}
-	else if (ModulationInfo.DeactivateMix)
+	else if (ModulationInfo.DeactivateMix.IsValid())
 	{
 		UAudioModulationStatics::DeactivateBusMix(this, ModulationInfo.DeactivateMix.LoadSynchronous());
 	}
 
-	if (ModulationInfo.Mix)
+	if (ModulationInfo.bIsActivateBusMix && ModulationInfo.Mix.IsValid())
 	{
-		USoundControlBusMix* SoundControlBusMix = ModulationInfo.Mix.LoadSynchronous();
-		UAudioModulationStatics::ActivateBusMix(this, SoundControlBusMix);
-		UAudioModulationStatics::UpdateMixByFilter(this, SoundControlBusMix, ModulationInfo.AddressFilter, ModulationInfo.ParamClassFilter, ModulationInfo.ParamFilter.LoadSynchronous(), ModulationInfo.Value, ModulationInfo.FadeTime);
+		ActivateBusMix = ModulationInfo.Mix.LoadSynchronous();
+		UAudioModulationStatics::ActivateBusMix(this, ActivateBusMix);
+		UAudioModulationStatics::UpdateMixByFilter(this, ActivateBusMix, ModulationInfo.AddressFilter, ModulationInfo.ParamClassFilter, ModulationInfo.ParamFilter.LoadSynchronous(), ModulationInfo.Value, ModulationInfo.FadeTime);
 	}
+
+	return ActivateBusMix;
 }
 
 

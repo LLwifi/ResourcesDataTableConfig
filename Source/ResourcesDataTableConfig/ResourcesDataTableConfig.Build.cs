@@ -44,7 +44,7 @@ public class ResourcesDataTableConfig : ModuleRules
 				"GameplayTags",
                 "AudioExtensions",//使用了FAudioParameter结构体
 				"AudioModulation",//该模块需要项目启用插件
-
+				"PhysicsCore",//物理材质——脚步声使用
 				/*
 					{
 						"Name": "AudioModulation",

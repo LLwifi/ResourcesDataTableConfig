@@ -11,6 +11,7 @@ void FResourcesDataTableConfigEditorModule::StartupModule()
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	//将结构体FUI_PrefabOperation 和 IUI_PrefabPropertyTypeCustom 关联起来
 	PropertyEditorModule.RegisterCustomPropertyTypeLayout(FName("ResourceProperty_SoundAssetTag"), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&ISoundAssetTagCustomization::MakeInstance));
+	PropertyEditorModule.RegisterCustomPropertyTypeLayout(FName("RDTC_AudioVolumeInfoHandle"), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&IRDTC_AudioVolumeInfoHandleCustomization::MakeInstance));
 	PropertyEditorModule.NotifyCustomizationModuleChanged();
 }
 
@@ -22,6 +23,7 @@ void FResourcesDataTableConfigEditorModule::ShutdownModule()
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.UnregisterCustomPropertyTypeLayout("ResourceProperty_SoundAssetTag");
+		PropertyModule.UnregisterCustomPropertyTypeLayout("RDTC_AudioVolumeInfoHandle");
 		PropertyModule.NotifyCustomizationModuleChanged();
 	}
 }

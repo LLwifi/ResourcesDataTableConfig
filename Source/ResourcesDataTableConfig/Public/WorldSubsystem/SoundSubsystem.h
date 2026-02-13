@@ -259,9 +259,11 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SoundEventProcess(FSoundEventProcess& ProcessInfo, TArray<UAudioComponent*>& SoundComs, TArray<UBGMChannel*>& BGMChannels);
 
-	//声音事件的调制处理
+	/*声音事件的调制处理
+	* Return：激活的USoundControlBusMix
+	*/
 	UFUNCTION(BlueprintCallable)
-	void SoundEventAudioModulation(FSoundEventAudioModulationInfo& ModulationInfo);
+	USoundControlBusMix* SetAudioModulationInfo(FAudioModulationInfo& ModulationInfo);
 
 public:
 

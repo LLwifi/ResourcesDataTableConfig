@@ -5,9 +5,10 @@
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "DialogueStructAndEnum.h"
+#include <ResourcesConfig.h>
 #include "DialogueManager.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(Dialogue, Log, All);
+//DECLARE_LOG_CATEGORY_EXTERN(Dialogue, Log, All);
 
 //对话播放状态
 UENUM(BlueprintType)
@@ -82,6 +83,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	FCC_CompareInfo GetCurSoundEventCompareInfo();
 
+	//触发对话声音事件
 	UFUNCTION(BlueprintCallable)
 	void TriggerDialogueSoundEvent();
 
@@ -96,6 +98,10 @@ public:
 	*/
 	UFUNCTION(BlueprintPure)
 	bool DialogueIsEnd();
+
+	//获取当前有效的ModulationInfo
+	UFUNCTION(BlueprintPure)
+	FAudioModulationInfo GetAudioModulationInfo();
 public:
 	//全部演讲者
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true))
@@ -121,6 +127,10 @@ public:
 
 	UPROPERTY(BlueprintReadWrite)
 	FTimerHandle ServerDialogueFinishedTimer;
+
+	////当前对话激活的Mix
+	//UPROPERTY(BlueprintReadWrite)
+	//USoundControlBusMix* ActivateBusMix;
 
 	/*对话下标
 	* 用来记录当前对话进行到哪一步了

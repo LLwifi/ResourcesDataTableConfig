@@ -74,6 +74,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FResourceProperty_SoundAssetTag SoundAssetTag;
 
+	//是否要重载Modulation
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverrideModulationInfo = false;
+	/*这句话的Modulation设置信息
+	* 会在这句话播放完后，还原该设置
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverrideModulationInfo"))
+	FAudioModulationInfo OneDialogueOverrideModulationInfo;
+
 	/*音效事件的比对配置标记
 	* 该值会在对话触发【音效事件】时被赋予 触发的音效事件名为：DialogueSoundEvent
 	* 需要注意的是：即使什么都不填在运行时也会动态获取以下信息：
@@ -127,6 +136,14 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FOneDialogueInfo> SectionDialogueInfo;
+
+	//是否要重载Modulation
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	bool bIsOverrideModulationInfo = false;
+	/*这段对话的Modulation设置信息
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bIsOverrideModulationInfo"))
+	FAudioModulationInfo SectionOverrideDialogueModulationInfo;
 };
 
 

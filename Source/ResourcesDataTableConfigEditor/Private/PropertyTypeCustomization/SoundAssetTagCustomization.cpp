@@ -288,4 +288,83 @@ TSharedRef<SWidget> ISoundAssetTagCustomization::OnGenerateWidget_RNOI(TSharedPt
         .Text(FText::FromString(*InItem));
 }
 
+//----------------------------------------------------------------------------------------------
+
+void IRDTC_AudioVolumeInfoHandleCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)
+{
+    HeaderRow
+        .NameContent()
+        [
+            PropertyHandle->CreatePropertyNameWidget()
+        ];
+}
+
+void IRDTC_AudioVolumeInfoHandleCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
+{
+    //通过名称拿结构体变量
+    RowNameHandle = PropertyHandle->GetChildHandle("RowName");
+
+    void* ValuePtr;
+    PropertyHandle->GetValueData(ValuePtr);
+    if (ValuePtr != nullptr)
+    {
+        InfoHandle = (FRDTC_AudioVolumeInfoHandle*)ValuePtr;
+        InfoHandle->DataTable = UResourcesConfig::GetInstance()->AudioVolumeInfoDataTable;
+        DataTableHandle = PropertyHandle->GetChildHandle("DataTable");
+    }
+
+    //Refresh(RowNames, ResourceNameOrIndexs);
+
+    UDataTable* DT = UResourcesConfig::GetInstance()->AudioVolumeInfoDataTable.LoadSynchronous();
+    TArray<FName> DTRowName;
+    if (DT)
+    {
+        DTRowName = DT->GetRowNames();
+        for (FName& name : DTRowName)
+        {
+            RowNames.Add(MakeShareable(new FString(name.ToString())));
+        }
+    }
+
+    //slate
+    ChildBuilder.AddCustomRow(FText())
+        [
+            SNew(SVerticalBox)
+                + SVerticalBox::Slot()
+                [
+                    SAssignNew(SearchableComboBox_RowName, SSearchableComboBox)
+                        .OptionsSource(&RowNames)//所有选项
+                        .OnGenerateWidget(this, &IRDTC_AudioVolumeInfoHandleCustomization::OnGenerateWidget_RowName)//每个下拉选项的样式通过函数构造
+                        .OnSelectionChanged(this, &IRDTC_AudioVolumeInfoHandleCustomization::OnSelectionChanged_RowName)//改变选择的回调
+                        [
+                            SAssignNew(ComboBox_Name_Text, STextBlock)
+                                .Text(FText::FromString(InfoHandle->RowName.ToString()))
+                        ]
+                ]
+            + SVerticalBox::Slot().AutoHeight()
+                [
+                    SNew(SHorizontalBox)
+                        + SHorizontalBox::Slot().AutoWidth()
+                        [
+                            DataTableHandle->CreatePropertyValueWidget()
+                        ]
+                ]
+        ];
+}
+
+void IRDTC_AudioVolumeInfoHandleCustomization::OnSelectionChanged_RowName(TSharedPtr<FString> InItem, ESelectInfo::Type InSelectionInfo)
+{
+    RowNameHandle->SetValue(FName(*InItem.Get()));
+    ComboBox_Name_Text->SetText(FText::FromString(*InItem));
+    InfoHandle->RowName = FName(*InItem.Get());
+
+    //Refresh(RowNames, ResourceNameOrIndexs);
+}
+
+TSharedRef<SWidget> IRDTC_AudioVolumeInfoHandleCustomization::OnGenerateWidget_RowName(TSharedPtr<FString> InItem)
+{
+    return SNew(STextBlock)
+        .Text(FText::FromString(*InItem));
+}
+
 #undef LOCTEXT_NAMESPACE

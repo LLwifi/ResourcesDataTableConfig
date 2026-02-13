@@ -4,8 +4,9 @@
 #include "Actor/SoundLine.h"
 #include "Components/SplineComponent.h"
 #include "Components/AudioComponent.h"
-#include "Actor/SoundActor.h"
 #include "SceneComponent/SoundAssetTagAudioComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 
 // Sets default values
 ASoundLine::ASoundLine()
@@ -15,36 +16,25 @@ ASoundLine::ASoundLine()
 
 	SoundSpline = CreateDefaultSubobject<USplineComponent>("SoundSpline");
 	SetRootComponent(SoundSpline);
+	SoundAssetTagAudioComponent = CreateDefaultSubobject<USoundAssetTagAudioComponent>(TEXT("SoundAssetTagAudioComponent"));
+	SoundAssetTagAudioComponent->SetupAttachment(RootComponent);
 }
+
 #if WITH_EDITOR
 void ASoundLine::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	auto Property = PropertyChangedEvent.Property;//�õ��ı������
-
-	if (Property->GetFName() == "AttenuationSettings")
-	{
-		for (ASoundActor*& SoundActor : SoundActors)
-		{
-			SoundActor->SoundAssetTagAudioComponent->SetAttenuationSettings(AttenuationSettings);
-		}
-	}
-	else if (Property->GetFName() == "ResourceNameOrIndex" || Property->GetFName() == "RowName")
-	{
-		for (ASoundActor*& SoundActor : SoundActors)
-		{
-			SoundActor->SoundAssetTagAudioComponent->SoundAssetTag = SoundAssetTag;
-			SoundActor->SoundAssetTagAudioComponent->Refresh();
-		}
-	}
+	auto Property = PropertyChangedEvent.Property;
 }
 #endif
+
 // Called when the game starts or when spawned
 void ASoundLine::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	GetWorld()->GetTimerManager().SetTimer(CheckIntervalTimerHandler, this, &ASoundLine::CheckIntervalBack, CheckInterval, true);
 }
 
 // Called every frame
@@ -56,37 +46,61 @@ void ASoundLine::Tick(float DeltaTime)
 
 void ASoundLine::Destroyed()
 {
-	Delete();
 }
 
-void ASoundLine::Refresh()
+AActor* ASoundLine::GetTargetActor()
 {
-	Delete();
-	float Weight = 1.0f / (float)(SoundNum - 1.0f);//ÿһ��ռ��Ȩ��
-	for (int32 i = 0; i < SoundNum; i++)
+	if (!TargetActor)
 	{
-		ASoundActor* SoundActor = GetWorld()->SpawnActor<ASoundActor>();
-		if (SoundActor)
-		{
-			SoundActor->SetActorLocation(SoundSpline->GetLocationAtTime(Weight * i, ESplineCoordinateSpace::World));
-			SoundActor->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-			SoundActors.Add(SoundActor);
-			SoundActor->SoundAssetTagAudioComponent->SoundAssetTag = SoundAssetTag;
-			SoundActor->SoundAssetTagAudioComponent->Refresh();
-		}
+		TargetActor = UGameplayStatics::GetPlayerPawn(this, 0);
 	}
+	return TargetActor;
 }
 
-void ASoundLine::Delete()
+void ASoundLine::CheckIntervalBack()
 {
-	TArray<ASoundActor*> AllSoundActor = SoundActors;
-	for (ASoundActor* SoundActor : AllSoundActor)
+	if (GetTargetActor())
 	{
-		if (SoundActor)
+		FVector TargetLocation = GetTargetActor()->GetActorLocation();//目标位置
+		float InputKey = SoundSpline->FindInputKeyClosestToWorldLocation(TargetLocation);//根据目标位置获取在线段上的0~1值
+		FVector SplineLocation = SoundSpline->GetLocationAtSplineInputKey(InputKey,ESplineCoordinateSpace::World);//线段上的位置
+		if (bIsRange)
 		{
-			SoundActor->Destroy();
+			FRotator SplineRotator = SoundSpline->GetRotationAtSplineInputKey(InputKey, ESplineCoordinateSpace::World);//线段上的旋转/朝向
+			FVector SplineRotatorDir = UKismetMathLibrary::Normal(UKismetMathLibrary::GetForwardVector(SplineRotator));
+			FVector SplineToTargetDir = UKismetMathLibrary::Normal(TargetLocation - SplineLocation);//线段上的位置指向目标位置的方向
+			FVector Cross = UKismetMathLibrary::Cross_VectorVector(SplineRotatorDir, SplineToTargetDir);
+
+			//顺时针，圈内是正数
+			if (bIsClockwise)
+			{
+				if (Cross.Z >= 0.0f)//圈内
+				{
+					SoundAssetTagAudioComponent->SetWorldLocation(TargetLocation);
+				}
+				else//圈外
+				{
+					SoundAssetTagAudioComponent->SetWorldLocation(SplineLocation);
+					SoundAssetTagAudioComponent->SetWorldRotation(SplineRotator);
+				}
+			}
+			else//逆时针，圈内是负数
+			{
+				if (Cross.Z <= 0.0f)//圈内
+				{
+					SoundAssetTagAudioComponent->SetWorldLocation(TargetLocation);
+				}
+				else//圈外
+				{
+					SoundAssetTagAudioComponent->SetWorldLocation(SplineLocation);
+					SoundAssetTagAudioComponent->SetWorldRotation(SplineRotator);
+				}
+			}
+		}
+		else
+		{
+			SoundAssetTagAudioComponent->SetWorldLocation(SplineLocation);
 		}
 	}
-	SoundActors.Empty();
 }
 
