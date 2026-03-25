@@ -6,6 +6,10 @@
 #include "Actor/SoundActor.h"
 #include "SoundActorCollision.generated.h"
 
+class UBoxComponent;
+class UCapsuleComponent;
+class USphereComponent;
+
 /**
  * 声音Actor，该类用于替代直接拖拽到场景的音效
  * 额外多一个碰撞触发逻辑
@@ -24,20 +28,5 @@ public:
 
 	virtual void BeginPlay() override;
 
-	UFUNCTION(BlueprintNativeEvent)
-	void OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	void OnBeginOverlap_Implementation(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	UFUNCTION(BlueprintNativeEvent)
-	void OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-	void OnEndOverlap_Implementation(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-	
 public:
-
-	//碰撞的半径
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float SphereRadius = 100.0f;
-
-	//圆形碰撞
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
-	class USphereComponent* SphereComponent;
 };

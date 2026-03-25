@@ -904,3 +904,18 @@ enum class EPlaySoundResourceType :uint8
 	SimultaneouslyPlay UMETA(DisplayName = "同时触发")
 };
 
+//声音碰撞的重叠检测信息
+USTRUCT(BlueprintType)
+struct FSoundCollisionOverlapCheck
+{
+	GENERATED_BODY()
+public:
+	FSoundCollisionOverlapCheck() {}
+	FSoundCollisionOverlapCheck(UPrimitiveComponent* Collision) { OverlapCollision.Add(Collision); }
+
+public:
+	//进入的Actor触发了哪些碰撞的重叠
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true, EditConditionHides, EditCondition = "SoundActionType == ESoundActionType::TriggerOtherCollisionCheck || SoundActionType == ESoundActionType::TriggerOtherCollisionBeginOverlap || SoundActionType == ESoundActionType::TriggerOtherCollisionEndOverlap"))
+	TArray<UPrimitiveComponent*> OverlapCollision;
+};
+

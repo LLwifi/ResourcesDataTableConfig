@@ -29,14 +29,6 @@ void ASoundCollision::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	auto Property = PropertyChangedEvent.Property;//拿到改变的属性
-
-	//if (Property->GetFName().ToString().Contains("Collision"))//碰撞相关
-	//{
-	//	if (ShapeComponent)
-	//	{
-	//		ShapeComponent->BodyInstance = BodyInstance;
-	//	}
-	//}
 }
 
 TArray<FString> ASoundCollision::SoundEventName()
@@ -60,17 +52,33 @@ void ASoundCollision::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!ShapeComponent)
+	if (AllShapeComponent.Num() <= 0)
 	{
-		ShapeComponent = GetComponentByClass<UShapeComponent>();
-		if (ShapeComponent)
-		{
-			BoxComponent = Cast<UBoxComponent>(ShapeComponent);
-			SphereComponent = Cast<USphereComponent>(ShapeComponent);
-			CapsuleComponent = Cast<UCapsuleComponent>(ShapeComponent);
+		GetComponents(UShapeComponent::StaticClass(), AllShapeComponent);
+		UBoxComponent* BoxCom;
+		USphereComponent* SphereCom;
+		UCapsuleComponent* CapsuleCom;
 
-			ShapeComponent->OnComponentBeginOverlap.AddDynamic(this, &ASoundCollision::OnBeginOverlap);
-			ShapeComponent->OnComponentEndOverlap.AddDynamic(this, &ASoundCollision::OnEndOverlap);
+		for (UShapeComponent*& ShapeCom : AllShapeComponent)
+		{
+			ShapeCom->OnComponentBeginOverlap.AddDynamic(this, &ASoundCollision::OnBeginOverlapCheck);
+			ShapeCom->OnComponentEndOverlap.AddDynamic(this, &ASoundCollision::OnEndOverlapCheck);
+
+			BoxCom = Cast<UBoxComponent>(ShapeCom);
+			if (BoxCom)
+			{
+				AllBoxComponent.Add(BoxCom);
+			}
+			SphereCom = Cast<USphereComponent>(ShapeCom);
+			if (SphereCom)
+			{
+				AllSphereComponent.Add(SphereCom);
+			}
+			CapsuleCom = Cast<UCapsuleComponent>(ShapeCom);
+			if (CapsuleCom)
+			{
+				AllCapsuleComponent.Add(CapsuleCom);
+			}
 		}
 	}
 
@@ -95,50 +103,50 @@ void ASoundCollision::Tick(float DeltaTime)
 
 }
 
-void ASoundCollision::OnBeginOverlap_Implementation(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void ASoundCollision::OnBeginOverlapCheck(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	OverlapActor = OtherActor;
-	if (OnlyPassClassArray.Num() <= 0)
+	if (OverlapCheck.Contains(OtherActor))
 	{
-		SoundActionArray(SoundCollisionAction_BeginOverlap.GetAction());
+		OverlapCheck[OtherActor].OverlapCollision.Add(OverlappedComponent);
 	}
 	else
 	{
-		for (TSoftClassPtr<AActor>& ActorClass : OnlyPassClassArray)
+		OverlapCheck.Add(OtherActor, FSoundCollisionOverlapCheck(OverlappedComponent));
+	}
+
+	OnBeginOverlap(OverlappedComponent,OtherActor,OtherComp,OtherBodyIndex,bFromSweep,SweepResult);
+}
+
+void ASoundCollision::OnEndOverlapCheck(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (OverlapCheck.Contains(OtherActor))
+	{
+		OverlapCheck[OtherActor].OverlapCollision.Remove(OverlappedComponent);
+		if (OverlapCheck[OtherActor].OverlapCollision.Num() <= 0)
 		{
-			if (OverlapActor->IsA(ActorClass.LoadSynchronous()))
-			{
-				SoundActionArray(SoundCollisionAction_BeginOverlap.GetAction());
-				break;
-			}
+			OnEndOverlap(OverlappedComponent, OtherActor, OtherComp, OtherBodyIndex);
 		}
 	}
 }
 
+void ASoundCollision::OnBeginOverlap_Implementation(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	OverlapAllActor.Empty();
+	OverlapAllActor.Add(OtherActor);
+	SoundActionArray(SoundCollisionAction_BeginOverlap.GetAction());
+}
+
 void ASoundCollision::OnEndOverlap_Implementation(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	OverlapActor = OtherActor;
-	if (OnlyPassClassArray.Num() <= 0)
+	OverlapAllActor.Empty();
+	OverlapAllActor.Add(OtherActor);
+	SoundActionArray(SoundCollisionAction_EndOverlap.GetAction());
+
+	if (bCollisionOnce)
 	{
-		SoundActionArray(SoundCollisionAction_EndOverlap.GetAction());
-		if (bCollisionOnce)
+		for (UShapeComponent*& ShapeCom : AllShapeComponent)
 		{
-			ShapeComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		}
-	}
-	else
-	{
-		for (TSoftClassPtr<AActor>& ActorClass : OnlyPassClassArray)
-		{
-			if (OverlapActor->IsA(ActorClass.LoadSynchronous()))
-			{
-				SoundActionArray(SoundCollisionAction_EndOverlap.GetAction());
-				if (bCollisionOnce)
-				{
-					ShapeComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				}
-				break;
-			}
+			ShapeCom->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		}
 	}
 
@@ -164,45 +172,38 @@ void ASoundCollision::CheckCollision()
 		UseSoundCollisionAction = SoundCollisionAction_Check.GetAction();
 	}
 
-	FHitResult OutHit;
-	bool IsPlay = false;
+	OverlapAllActor.Empty();
+	TArray<FHitResult> OutHit;
 	FVector CheckLocation = GetActorLocation();
-	if (SphereComponent)
+	for (UBoxComponent*& Com : AllBoxComponent)
 	{
-		CheckLocation += SphereComponent->GetRelativeLocation();
-		IsPlay = UKismetSystemLibrary::SphereTraceSingleForObjects(this, CheckLocation, CheckLocation, SphereComponent->GetUnscaledSphereRadius(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
+		CheckLocation += Com->GetRelativeLocation();
+		UKismetSystemLibrary::BoxTraceMultiForObjects(this, CheckLocation, CheckLocation, Com->GetUnscaledBoxExtent(), GetActorRotation(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
 	}
-	else if (CapsuleComponent)
+	for (USphereComponent*& Com : AllSphereComponent)
 	{
-		CheckLocation += CapsuleComponent->GetRelativeLocation();
-		IsPlay = UKismetSystemLibrary::CapsuleTraceSingleForObjects(this, CheckLocation, CheckLocation, CapsuleComponent->GetUnscaledCapsuleRadius(), CapsuleComponent->GetUnscaledCapsuleHalfHeight(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
+		CheckLocation += Com->GetRelativeLocation();
+		UKismetSystemLibrary::SphereTraceMultiForObjects(this, CheckLocation, CheckLocation, Com->GetUnscaledSphereRadius(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
 	}
-	else if (BoxComponent)
+	for (UCapsuleComponent*& Com : AllCapsuleComponent)
 	{
-		CheckLocation += BoxComponent->GetRelativeLocation();
-		IsPlay = UKismetSystemLibrary::BoxTraceSingleForObjects(this, CheckLocation, CheckLocation, BoxComponent->GetUnscaledBoxExtent(), GetActorRotation(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
+		CheckLocation += Com->GetRelativeLocation();
+		UKismetSystemLibrary::CapsuleTraceMultiForObjects(this, CheckLocation, CheckLocation, Com->GetUnscaledCapsuleRadius(), Com->GetUnscaledCapsuleHalfHeight(), CollisionObjectTypes, false, ActorsToIgnore, DrawDebugType, OutHit, true);
 	}
-
-	if (IsPlay)
+	
+	for (FHitResult& Hit : OutHit)
 	{
-		OverlapActor = OutHit.GetActor();
-		if (OnlyPassClassArray.Num() <= 0)
+		AActor* HitActor = Hit.GetActor();
+		if (!OverlapAllActor.Contains(HitActor))
 		{
-			SoundActionArray(UseSoundCollisionAction);
-		}
-		else
-		{
-			for (TSoftClassPtr<AActor>& ActorClass : OnlyPassClassArray)
-			{
-				if (OverlapActor->IsA(ActorClass.LoadSynchronous()))
-				{
-					SoundActionArray(UseSoundCollisionAction);
-					break;
-				}
-			}
+			OverlapAllActor.Add(HitActor);
 		}
 	}
 
+	if (OnlyPassClassArray.Num() > 0)
+	{
+		SoundActionArray(UseSoundCollisionAction);
+	}
 }
 
 void ASoundCollision::CameraLookCheckAngle()
@@ -324,11 +325,18 @@ void ASoundCollision::SoundAction(FSoundCollisionAction SoundCollisionAction)
 		}
 		case ESoundActionType::TriggerSoundEvent:
 		{
-			if (OverlapActor && OverlapActor->Implements<USoundEventInteract>())
+			
+			if (OverlapAllActor.Num() > 0)
 			{
-				FCC_CompareInfo DynamicCompareParameter = ISoundEventInteract::Execute_GetSoundEventCompareParameter(OverlapActor, SoundCollisionAction.SoundEventName);
-				DynamicCompareParameter.Append(SoundCollisionAction.CompareParameter);
-				SoundSubsystem->TriggerSoundEvent(SoundCollisionAction.SoundEventName, DynamicCompareParameter, SoundComs, BGMChannel);
+				for (AActor*& Actor : OverlapAllActor)
+				{
+					if (Actor->Implements<USoundEventInteract>())
+					{
+						FCC_CompareInfo DynamicCompareParameter = ISoundEventInteract::Execute_GetSoundEventCompareParameter(Actor, SoundCollisionAction.SoundEventName);
+						DynamicCompareParameter.Append(SoundCollisionAction.CompareParameter);
+						SoundSubsystem->TriggerSoundEvent(SoundCollisionAction.SoundEventName, DynamicCompareParameter, SoundComs, BGMChannel);
+					}
+				}
 			}
 			else
 			{
@@ -364,7 +372,7 @@ void ASoundCollision::SoundAction(FSoundCollisionAction SoundCollisionAction)
 			{
 				if (SoundCollision)
 				{
-					SoundCollision->OverlapActor = OverlapActor;
+					SoundCollision->OverlapAllActor = OverlapAllActor;
 					SoundCollision->SoundActionArray(SoundCollision->SoundCollisionAction_BeginOverlap.GetAction());
 				}
 			}
@@ -376,7 +384,7 @@ void ASoundCollision::SoundAction(FSoundCollisionAction SoundCollisionAction)
 			{
 				if (SoundCollision)
 				{
-					SoundCollision->OverlapActor = OverlapActor;
+					SoundCollision->OverlapAllActor = OverlapAllActor;
 					SoundCollision->SoundActionArray(SoundCollision->SoundCollisionAction_EndOverlap.GetAction());
 				}
 			}

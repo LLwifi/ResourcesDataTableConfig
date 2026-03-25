@@ -3,6 +3,8 @@
 
 #include "SceneComponent/SoundAssetTagAudioComponent.h"
 #include <ResourceBPFunctionLibrary.h>
+#include <WorldSubsystem/SoundSubsystem.h>
+#include <Subsystems/SubsystemBlueprintLibrary.h>
 
 #if WITH_EDITOR
 void USoundAssetTagAudioComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -21,7 +23,22 @@ void USoundAssetTagAudioComponent::PostEditChangeProperty(FPropertyChangedEvent&
 void USoundAssetTagAudioComponent::Activate(bool bReset)
 {
 	Refresh();
-	Super::Activate(bReset);
+	if (SoundAssetTag.SoundAssetType == ESoundAssetType::BGM)//BGM 不适用音频组件播放
+	{
+		USoundSubsystem* SoundSubsystem = Cast<USoundSubsystem>(USubsystemBlueprintLibrary::GetWorldSubsystem(this, USoundSubsystem::StaticClass()));
+		if (SoundSubsystem)
+		{
+			FBGMInfo BGMInfo;
+			if (UResourceBPFunctionLibrary::GetResourceFromString_BGM(SoundAssetTag.RowName, SoundAssetTag.ResourceNameOrIndex, BGMInfo))
+			{
+				SoundSubsystem->PushBGMToChannelOfInfo(BGMInfo);
+			}
+		}
+	}
+	else
+	{
+		Super::Activate(bReset);
+	}
 }
 
 void USoundAssetTagAudioComponent::Refresh()

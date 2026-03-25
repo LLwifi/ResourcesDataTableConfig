@@ -10,6 +10,10 @@
 #include "SoundCollision.generated.h"
 
 class UBGMChannel;
+class UShapeComponent;
+class UBoxComponent;
+class USphereComponent;
+class UCapsuleComponent;
 
 //碰撞处理的方式
 UENUM(BlueprintType)
@@ -189,6 +193,11 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	UFUNCTION()
+	void OnBeginOverlapCheck(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION()
+	void OnEndOverlapCheck(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
 	UFUNCTION(BlueprintNativeEvent)
 	void OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	void OnBeginOverlap_Implementation(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -299,19 +308,23 @@ public:
 	class USceneComponent* RootScene;
 	//当前生效的碰撞
 	UPROPERTY(BlueprintReadOnly, Category = "Shape")
-	class UShapeComponent* ShapeComponent;
+	TArray<UShapeComponent*> AllShapeComponent;
 
 	//盒型碰撞
 	UPROPERTY(BlueprintReadOnly, Category = "Shape")
-	class UBoxComponent* BoxComponent;
+	TArray<UBoxComponent*> AllBoxComponent;
 	//圆形碰撞
 	UPROPERTY(BlueprintReadOnly, Category = "Shape")
-	class USphereComponent* SphereComponent;
+	TArray<USphereComponent*> AllSphereComponent;
 	//胶囊体碰撞
 	UPROPERTY(BlueprintReadOnly, Category = "Shape")
-	class UCapsuleComponent* CapsuleComponent;
+	TArray<UCapsuleComponent*> AllCapsuleComponent;
 
 	//触发重叠的Actor
 	UPROPERTY()
-	AActor* OverlapActor;
+	TArray<AActor*> OverlapAllActor;
+
+	//触发进入重叠事件的次数
+	UPROPERTY(BlueprintReadWrite)
+	TMap<AActor*, FSoundCollisionOverlapCheck> OverlapCheck;
 };
