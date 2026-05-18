@@ -45,13 +45,10 @@ public class ResourcesDataTableConfig : ModuleRules
                 "AudioExtensions",//使用了FAudioParameter结构体
 				"AudioModulation",//该模块需要项目启用插件
 				"PhysicsCore",//物理材质——脚步声使用
-				/*
-					{
-						"Name": "AudioModulation",
-						"Enabled": true
-					},
-				 */
-				//"MetasoundEngine" //测试Metasound能否获取SoundWave时使用过
+				"MetasoundEngine",
+				"MetasoundFrontend",
+                "MetasoundGraphCore"
+
 				// ... add private dependencies that you statically link with here ...	
 			}
             );

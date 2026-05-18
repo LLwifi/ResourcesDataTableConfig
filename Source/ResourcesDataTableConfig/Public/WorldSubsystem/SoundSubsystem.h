@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "ResourcesStructAndEnum.h"
 #include "Subsystems/WorldSubsystem.h"
-//#include "UObject/Interface.h"
 #include <Sound/SoundEvent.h>
 #include "SoundSubsystem.generated.h"
 
@@ -52,6 +51,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 		UAudioComponent* PushBGMOfInfo(FBGMInfo PushInfo);
 
+	//往通道的列表中添加一个音效
+	UFUNCTION(BlueprintCallable)
+		void AddBGMToListOfInfo(FBGMInfo PushInfo);
+
+	//往通道的列表中移除一个音效
+	UFUNCTION(BlueprintCallable)
+		void RemoveBGMToListOfInfo(FBGMInfo PushInfo);
+
 	UFUNCTION()
 		void SetNewBackgroundSound();
 
@@ -94,7 +101,19 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable)
 	void ChangeChannelPauseState(FName OtherChannelName, bool IsPause = true);
+
+	//MetaSound的OutPut触发回调
+	UFUNCTION()
+	void MetaSoundOutPut(FName OutputName, const FMetaSoundOutput& Output);
+	//MetaSound的标签触发回调
+	UFUNCTION()
+	void MetaSoundOutPut_CuePointLabel(FString Label);
+
 public:
+	//MetaSound上次回调的标签
+	UPROPERTY()
+	FString MetaSoundOnCuePointLable;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		FName ChannelName;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -103,6 +122,9 @@ public:
 		FBGMInfo CurBGMInfo;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		FBGMInfo PushBGMInfo;
+	//等待列表
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<FBGMInfo> DelayBGMList;
 
 	//当前的BGM声音文件播放完成音效名称
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -226,13 +248,33 @@ public:
 	UFUNCTION(BlueprintCallable)
 		UBGMChannel* PushBGMToChannel(FName RowName, FString ResourceNameOrIndex);
 
+	//往通道的等待列表中添加一个BGM
+	UFUNCTION(BlueprintCallable)
+		UBGMChannel* AddBGMToChannel(FName RowName, FString ResourceNameOrIndex);
+
+	//往通道的等待列表中移除一个BGM
+	UFUNCTION(BlueprintCallable)
+		void RemoveBGMToChannel(FName RowName, FString ResourceNameOrIndex);
+
 	//推送BGM通道_自定义通道名称
 	UFUNCTION(BlueprintCallable)
 		UBGMChannel* PushBGMToChannel_CustomChannelName(FName ChannelName, FName RowName, FString ResourceNameOrIndex);
 
+	//初始创建BGM通道
+	UFUNCTION(BlueprintCallable)
+		void InitCreateBGMChannel();
+
 	//推送BGM通道
 	UFUNCTION(BlueprintCallable)
 		UBGMChannel* PushBGMToChannelOfInfo(FBGMInfo PushInfo);
+
+	//往通道的等待列表中添加一个BGM
+	UFUNCTION(BlueprintCallable)
+		UBGMChannel* AddBGMToChannelListOfInfo(FBGMInfo PushInfo);
+
+	//往通道的等待列表中移除一个BGM
+	UFUNCTION(BlueprintCallable)
+		void RemoveBGMToChannelListOfInfo(FBGMInfo PushInfo);
 
 	//推送BGM通道_自定义通道名称
 	UFUNCTION(BlueprintCallable)

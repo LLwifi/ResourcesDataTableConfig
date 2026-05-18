@@ -10,6 +10,7 @@
 #include "ActorComponent/SoundComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "AudioModulationStatics.h"
+#include "MetasoundOutputSubsystem.h"
 
 UAudioComponent* UBGMChannel::PushBGM(FName RowName, FString ResourceNameOrIndex)
 {
@@ -48,8 +49,6 @@ UAudioComponent* UBGMChannel::PushBGMOfInfo(FBGMInfo PushInfo)
 		}
 	}
 
-	
-
 	//切换主BGM
 	if (!PushBGMInfo.SoundBase.IsNull())
 	{
@@ -60,89 +59,100 @@ UAudioComponent* UBGMChannel::PushBGMOfInfo(FBGMInfo PushInfo)
 		}
 		else
 		{
+			//"我" 要怎么被弹出/切换
+			
 			//该值不能大于AbsoluteBeatNum，这里进行处理
 			int32 FadeInOutBeatNum = PushBGMInfo.FadeInOutBeatNum = PushBGMInfo.FadeInOutBeatNum > PushBGMInfo.AbsoluteBeatNum ? PushBGMInfo.AbsoluteBeatNum : PushBGMInfo.FadeInOutBeatNum;
-			switch (PushBGMInfo.SwitchBMGType) {
-			case ESwitchBMGType::Fade:
-			{
-				//当前有没有音频正在播放
-				if (CurAudioCom && CurAudioCom->IsPlaying())
-				{
-					CurAudioCom->FadeOut(CurBGMInfo.BGMFadeOutTime, 0.0f);
-					//新音效淡入之前的等待时间
-					float DelayTime = CurBGMInfo.BGMFadeOutTime * PushBGMInfo.DelayTimeScale;
-					if (DelayTime > 0.0f)
-					{
-						GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, DelayTime);
-					}
-					else
-					{
-						SetNewBackgroundSound();
-					}
-				}
-				else
-				{
-					SetNewBackgroundSound();
-				}
-				break;
-			}
-			case ESwitchBMGType::BPM:
-			{
-				if (CurAudioCom && CurAudioCom->IsPlaying())
-				{
-					float Interval = 60.0f / CurBGMInfo.BPM;//一拍的时间
-					float AbsoluteBeatInterval = Interval * CurBGMInfo.AbsoluteBeatNum;
-					float TimeDifference = UKismetMathLibrary::GenericPercent_FloatFloat(CurBGMPlayTime, AbsoluteBeatInterval);//距离下个绝对节点的时间差
-					if (UKismetMathLibrary::NearlyEqual_FloatFloat(AbsoluteBeatInterval - TimeDifference, 0.01, 0.0099))
-					{
-						SetNewBackgroundSound();
-					}
-					else
-					{
-						GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, AbsoluteBeatInterval - TimeDifference);
-					}
-				}
-				else
-				{
-					SetNewBackgroundSound();
-				}
-				break;
-			}
-			case ESwitchBMGType::BPM_Fade:
-			{
-				if (CurAudioCom && CurAudioCom->IsPlaying())
-				{
-					float Interval = 60.0f / CurBGMInfo.BPM;//一拍的时间
-					float AbsoluteBeatInterval = Interval * CurBGMInfo.AbsoluteBeatNum;
-					float TimeDifference = UKismetMathLibrary::GenericPercent_FloatFloat(CurBGMPlayTime, AbsoluteBeatInterval);//距离下个绝对节点的时间差
-					BPM_Fade_FadeInOutTime = Interval * CurBGMInfo.FadeInOutBeatNum;//当前bgm的混出时间
-					float WaitTime = AbsoluteBeatInterval - TimeDifference - BPM_Fade_FadeInOutTime;//减去混合时间 剩下的 等待时间
-					if (UKismetMathLibrary::NearlyEqual_FloatFloat(WaitTime, 0.01, 0.0099))//没有混合时间了
-					{
-						CurAudioCom->SetSound(PushBGMInfo.SoundBase.LoadSynchronous());
-						CurAudioCom->Play();
-						SetParameter(PushBGMInfo);
-					}
-					else if (WaitTime < 0)//已经到达混合的节拍区域内了
-					{
-						SetNewBackgroundSound();
-					}
-					else//距离下个绝对节点仍有一段时间
-					{
-						GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, WaitTime);
-					}
-				}
-				else
-				{
-					SetNewBackgroundSound();
-				}
-				break;
-			}
-			case ESwitchBMGType::Switch:
+
+			if (CurBGMInfo.IsNull())
 			{
 				SetNewBackgroundSound();
 			}
+			else
+			{
+				switch (CurBGMInfo.SwitchBMGType) {
+				case ESwitchBMGType::Fade:
+				{
+					//当前有没有音频正在播放
+					if (CurAudioCom && CurAudioCom->IsPlaying())
+					{
+						CurAudioCom->FadeOut(CurBGMInfo.BGMFadeOutTime, 0.0f);
+						//新音效淡入之前的等待时间
+						float DelayTime = CurBGMInfo.BGMFadeOutTime * PushBGMInfo.DelayTimeScale;
+						if (DelayTime > 0.0f)
+						{
+							GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, DelayTime);
+						}
+						else
+						{
+							SetNewBackgroundSound();
+						}
+					}
+					else
+					{
+						SetNewBackgroundSound();
+					}
+					break;
+				}
+				case ESwitchBMGType::BPM:
+				{
+					if (CurAudioCom && CurAudioCom->IsPlaying())
+					{
+						float Interval = 60.0f / CurBGMInfo.BPM;//一拍的时间
+						float AbsoluteBeatInterval = Interval * CurBGMInfo.AbsoluteBeatNum;
+						float TimeDifference = UKismetMathLibrary::GenericPercent_FloatFloat(CurBGMPlayTime, AbsoluteBeatInterval);//距离下个绝对节点的时间差
+						if (UKismetMathLibrary::NearlyEqual_FloatFloat(AbsoluteBeatInterval - TimeDifference, 0.01, 0.0099))
+						{
+							SetNewBackgroundSound();
+						}
+						else
+						{
+							GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, AbsoluteBeatInterval - TimeDifference);
+						}
+					}
+					else
+					{
+						SetNewBackgroundSound();
+					}
+					break;
+				}
+				case ESwitchBMGType::BPM_Fade:
+				{
+					if (CurAudioCom && CurAudioCom->IsPlaying())
+					{
+						float Interval = 60.0f / CurBGMInfo.BPM;//一拍的时间
+						float AbsoluteBeatInterval = Interval * CurBGMInfo.AbsoluteBeatNum;
+						float TimeDifference = UKismetMathLibrary::GenericPercent_FloatFloat(CurBGMPlayTime, AbsoluteBeatInterval);//距离下个绝对节点的时间差
+						BPM_Fade_FadeInOutTime = Interval * CurBGMInfo.FadeInOutBeatNum;//当前bgm的混出时间
+						float WaitTime = AbsoluteBeatInterval - TimeDifference - BPM_Fade_FadeInOutTime;//减去混合时间 剩下的 等待时间
+						if (UKismetMathLibrary::NearlyEqual_FloatFloat(WaitTime, 0.01, 0.0099))//没有混合时间了
+						{
+							CurAudioCom->SetSound(PushBGMInfo.SoundBase.LoadSynchronous());
+							CurAudioCom->Play();
+							SetParameter(PushBGMInfo);
+						}
+						else if (WaitTime < 0)//已经到达混合的节拍区域内了
+						{
+							SetNewBackgroundSound();
+						}
+						else//距离下个绝对节点仍有一段时间
+						{
+							GetWorld()->GetTimerManager().SetTimer(PlayNewBMGTimerHandle, this, &UBGMChannel::SetNewBackgroundSound, WaitTime);
+						}
+					}
+					else
+					{
+						SetNewBackgroundSound();
+					}
+					break;
+				}
+				case ESwitchBMGType::Switch:
+				{
+					SetNewBackgroundSound();
+				}
+				}
 			}
+			
 			RefreshChannelVolume();
 		}
 	}
@@ -154,6 +164,24 @@ UAudioComponent* UBGMChannel::PushBGMOfInfo(FBGMInfo PushInfo)
 	}
 
 	return CurAudioCom;
+}
+
+void UBGMChannel::AddBGMToListOfInfo(FBGMInfo PushInfo)
+{
+	DelayBGMList.Add(PushInfo);
+}
+
+void UBGMChannel::RemoveBGMToListOfInfo(FBGMInfo PushInfo)
+{
+	//倒叙遍历找到第一个相同的
+	for (int32 i = DelayBGMList.Num() - 1; i >= 0; i--)
+	{
+		if (DelayBGMList[i] == PushInfo)
+		{
+			DelayBGMList.RemoveAt(i);
+			break;
+		}
+	}
 }
 
 void UBGMChannel::SetNewBackgroundSound()
@@ -193,7 +221,7 @@ void UBGMChannel::SetNewBackgroundSound()
 			}
 			break;
 		}
-		case ESwitchBMGType::Switch://直接切换不会跑到该函数进行处理，该函数只处理延迟播放的bgm
+		case ESwitchBMGType::Switch://直接切换
 		{
 			if (CurAudioCom)
 			{
@@ -201,10 +229,6 @@ void UBGMChannel::SetNewBackgroundSound()
 				if (CurBGMInfo.SwitchBMGType == ESwitchBMGType::Fade)
 				{
 					CurAudioCom->FadeOut(CurBGMInfo.BGMFadeOutTime, 0.0f);
-				}
-				else if (CurBGMInfo.SwitchBMGType == ESwitchBMGType::Switch)
-				{
-					CurAudioCom->Stop();
 				}
 				else
 				{
@@ -231,6 +255,19 @@ void UBGMChannel::SetBGMAudioComponent(UAudioComponent* NewAudioComponent)
 			CurAudioCom->OnAudioPlaybackPercent.Remove(AudioPlaybackPercent);
 			CurAudioCom->OnAudioFinished.Remove(AudioFinished);
 			CurAudioCom = nullptr;
+
+			//移除循环事件
+			UMetaSoundOutputSubsystem* MetaSoundOutputSubsystem = GetWorld()->GetSubsystem<UMetaSoundOutputSubsystem>();
+			if (MetaSoundOutputSubsystem)
+			{
+				FOnMetasoundOutputValueChanged Delegate;
+				Delegate.BindDynamic(this, &UBGMChannel::MetaSoundOutPut);
+
+				MetaSoundOutputSubsystem->UnwatchOutput(CurAudioCom, UResourcesConfig::GetInstance()->OnNearlyFinished_OutPutName, Delegate, FName(), FName());
+				MetaSoundOutputSubsystem->UnwatchOutput(CurAudioCom, UResourcesConfig::GetInstance()->OnCuePoint_OutPutName, Delegate, FName(), FName());
+				MetaSoundOutputSubsystem->UnwatchOutput(CurAudioCom, UResourcesConfig::GetInstance()->CuePointLabel_OutPutName, Delegate, FName(), FName());
+				MetaSoundOutputSubsystem->UnwatchOutput(CurAudioCom, UResourcesConfig::GetInstance()->CurPlaySoundPath_OutPutName, Delegate, FName(), FName());
+			}
 		}
 
 		//绑定新音效的进度
@@ -240,20 +277,25 @@ void UBGMChannel::SetBGMAudioComponent(UAudioComponent* NewAudioComponent)
 		CurAudioCom->Play();//该函数触发PlaybackPercent事件
 		SetParameter(PushBGMInfo);
 	}
+
+	//绑定metasound 相关output事件
+	UMetaSoundOutputSubsystem* MetaSoundOutputSubsystem = GetWorld()->GetSubsystem<UMetaSoundOutputSubsystem>();
+	if (MetaSoundOutputSubsystem)
+	{
+
+		FOnMetasoundOutputValueChanged Delegate;
+		Delegate.BindDynamic(this, &UBGMChannel::MetaSoundOutPut);
+
+		MetaSoundOutputSubsystem->WatchOutput(CurAudioCom, UResourcesConfig::GetInstance()->OnNearlyFinished_OutPutName, Delegate, FName(), FName());
+		MetaSoundOutputSubsystem->WatchOutput(CurAudioCom, UResourcesConfig::GetInstance()->OnCuePoint_OutPutName, Delegate, FName(), FName());
+		MetaSoundOutputSubsystem->WatchOutput(CurAudioCom, UResourcesConfig::GetInstance()->CuePointLabel_OutPutName, Delegate, FName(), FName());
+		MetaSoundOutputSubsystem->WatchOutput(CurAudioCom, UResourcesConfig::GetInstance()->CurPlaySoundPath_OutPutName, Delegate, FName(), FName());
+	}
 }
 
 void UBGMChannel::CurBGMPlaybackPercent(const USoundWave* SoundWave, const float PlaybackPercent)
 {
 	CurBGMPlayTime = SoundWave->Duration/*->GetDuration()*/ * PlaybackPercent;
-	//if (PlaybackPercent >= 1.0f)//实际测试下来PlaybackPercent =- 1.0 时会调用两次 最终改用FOnAudioFinished事件
-	//{
-	//	//这个声音文件要播放的音效次数
-	//	CurBGMPlayFinishedName.AddUnique(UKismetSystemLibrary::GetDisplayName(SoundWave));
-	//	if (CurBGMPlayFinishedName.Num() >= CurAudioCom->Sound->CurrentPlayCount.Num())
-	//	{
-	//		ChannelEnd();
-	//	}
-	//}
 }
 
 void UBGMChannel::CurBGMFinished()
@@ -392,6 +434,54 @@ void UBGMChannel::ChangeChannelPauseState(FName OtherChannelName, bool IsPause/*
 		}
 		//只要有一个还在赋予暂停，那么仍然暂停
 		CurAudioCom->SetPaused(OtherChannelPause.Num() > 0);
+	}
+}
+
+void UBGMChannel::MetaSoundOutPut(FName OutputName, const FMetaSoundOutput& Output)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Output: Name[%s]"), *OutputName.ToString());
+	if (OutputName == UResourcesConfig::GetInstance()->OnNearlyFinished_OutPutName)//几乎完成时
+	{
+		MetaSoundOutPut_CuePointLabel(UResourcesConfig::GetInstance()->CuePointLabel_BGMSwtich);
+	}
+	else if (OutputName == UResourcesConfig::GetInstance()->OnCuePoint_OutPutName)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Output: OnCuePoint --- [%s - %s]"), *OutputName.ToString(), *MetaSoundOnCuePointLable);
+		MetaSoundOutPut_CuePointLabel(MetaSoundOnCuePointLable);
+	}
+	else if (OutputName == UResourcesConfig::GetInstance()->CuePointLabel_OutPutName)//标签字符
+	{
+		Output.Get(MetaSoundOnCuePointLable);
+		UE_LOG(LogTemp, Warning, TEXT("Output: CuePointLabel --- [%s - %s]"), *OutputName.ToString(), *MetaSoundOnCuePointLable);
+		MetaSoundOutPut_CuePointLabel(MetaSoundOnCuePointLable);
+	}
+	else if (OutputName == UResourcesConfig::GetInstance()->CurPlaySoundPath_OutPutName)//当前播放的SoundWave路径
+	{
+		FString Path;
+		Output.Get(Path);
+		UE_LOG(LogTemp, Warning, TEXT("Output: [%s]"), *Path);
+		//MetaSoundOutPut_CuePointLabel(Path);
+	}
+}
+
+void UBGMChannel::MetaSoundOutPut_CuePointLabel(FString Label)
+{
+	if (!Label.IsEmpty())
+	{
+		if (Label == UResourcesConfig::GetInstance()->CuePointLabel_BGMSwtich)//BGM切换
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Output: CuePointLabel_BGMSwtich --- [%d]"), DelayBGMList.Num());
+			if (DelayBGMList.Num() > 0 && SoundSubsystem)//等待列表中有未播放的BGM
+
+			{
+				SoundSubsystem->PushBGMToChannelOfInfo(DelayBGMList[0]);//通过子系统调用是为了触发通道之间的影响
+				DelayBGMList.RemoveAt(0);
+			}
+		}
+		else if (Label == UResourcesConfig::GetInstance()->CuePointLabel_Subtitle)//字幕
+		{
+			
+		}
 	}
 }
 
@@ -758,6 +848,25 @@ UBGMChannel* USoundSubsystem::PushBGMToChannel(FName RowName, FString ResourceNa
 	return nullptr;
 }
 
+UBGMChannel* USoundSubsystem::AddBGMToChannel(FName RowName, FString ResourceNameOrIndex)
+{
+	FBGMInfo BGMInfo;
+	if (UResourceBPFunctionLibrary::GetResourceFromString_BGM(RowName, ResourceNameOrIndex, BGMInfo))
+	{
+		return AddBGMToChannelListOfInfo(BGMInfo);
+	}
+	return nullptr;
+}
+
+void USoundSubsystem::RemoveBGMToChannel(FName RowName, FString ResourceNameOrIndex)
+{
+	FBGMInfo BGMInfo;
+	if (UResourceBPFunctionLibrary::GetResourceFromString_BGM(RowName, ResourceNameOrIndex, BGMInfo))
+	{
+		RemoveBGMToChannelListOfInfo(BGMInfo);
+	}
+}
+
 UBGMChannel* USoundSubsystem::PushBGMToChannel_CustomChannelName(FName ChannelName, FName RowName, FString ResourceNameOrIndex)
 {
 	FBGMInfo BGMInfo;
@@ -768,7 +877,7 @@ UBGMChannel* USoundSubsystem::PushBGMToChannel_CustomChannelName(FName ChannelNa
 	return nullptr;
 }
 
-UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo(FBGMInfo PushInfo)
+void USoundSubsystem::InitCreateBGMChannel()
 {
 	UBGMChannel* BGMChannel;
 	if (AllBGMChannel.Num() == 0)//初始创建BGM通道
@@ -784,7 +893,12 @@ UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo(FBGMInfo PushInfo)
 			}
 		}
 	}
+}
 
+UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo(FBGMInfo PushInfo)
+{
+	InitCreateBGMChannel();
+	UBGMChannel* BGMChannel;
 	if (AllBGMChannel.Contains(PushInfo.BGMChannelName))
 	{
 		AllBGMChannel[PushInfo.BGMChannelName]->PushBGMOfInfo(PushInfo);
@@ -828,6 +942,45 @@ UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo(FBGMInfo PushInfo)
 	}
 	BGMChannelChange.Broadcast();
 	return BGMChannel;
+}
+
+UBGMChannel* USoundSubsystem::AddBGMToChannelListOfInfo(FBGMInfo AddInfo)
+{
+	InitCreateBGMChannel();
+	UBGMChannel* BGMChannel;
+	if (AllBGMChannel.Contains(AddInfo.BGMChannelName))
+	{
+		BGMChannel = AllBGMChannel[AddInfo.BGMChannelName];
+	}
+	else
+	{
+		BGMChannel = NewObject<UBGMChannel>(this);
+		if (BGMChannel)
+		{
+			BGMChannel->ChannelName = AddInfo.BGMChannelName;
+			BGMChannel->SoundSubsystem = this;
+			AllBGMChannel.Add(AddInfo.BGMChannelName, BGMChannel);
+		}
+	}
+
+	if (BGMChannel->CurBGMInfo.IsNull())//当前如果没有BGM在播放，那么之间push这个本来要往等待列表中加的BGM
+	{
+		PushBGMToChannelOfInfo(AddInfo);
+	}
+	else
+	{
+		BGMChannel->AddBGMToListOfInfo(AddInfo);
+	}
+
+	return BGMChannel;
+}
+
+void USoundSubsystem::RemoveBGMToChannelListOfInfo(FBGMInfo PushInfo)
+{
+	if (AllBGMChannel.Contains(PushInfo.BGMChannelName))//必须有这个通道才有可能移除
+	{
+		AllBGMChannel[PushInfo.BGMChannelName]->RemoveBGMToListOfInfo(PushInfo);
+	}
 }
 
 UBGMChannel* USoundSubsystem::PushBGMToChannelOfInfo_CustomChannelName(FName ChannelName, FBGMInfo PushInfo)

@@ -7,6 +7,8 @@
 #include "ResourcesStructAndEnum.h"
 #include "ResourceBPFunctionLibrary.generated.h"
 
+class UMetaSoundOutputSubsystem;
+
 /**
  * 
  */
@@ -53,4 +55,5 @@ public:
 	//根据参数获取一个SoundWave
 	UFUNCTION(BlueprintPure)
 	static USoundWave* GetSoundWaveFromParameters(FSoundParameters SoundParameters);
+
 };

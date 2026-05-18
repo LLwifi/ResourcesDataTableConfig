@@ -6,7 +6,6 @@
 #include <ResourceBPFunctionLibrary.h>
 #include "SceneComponent/SoundAssetTagAudioComponent.h"
 #include "Components/SphereComponent.h"
-#include "Components/SphereComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/BoxComponent.h"
 

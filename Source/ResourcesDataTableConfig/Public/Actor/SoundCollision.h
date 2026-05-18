@@ -33,7 +33,12 @@ enum class ESoundActionType : uint8
 
 	TriggerOtherCollisionCheck UMETA(DisplayName = "触发其他音效碰撞的主动检测"),
 	TriggerOtherCollisionBeginOverlap UMETA(DisplayName = "触发其他音效碰撞的进入检测"),
-	TriggerOtherCollisionEndOverlap UMETA(DisplayName = "触发其他音效碰撞的离开检测")
+	TriggerOtherCollisionEndOverlap UMETA(DisplayName = "触发其他音效碰撞的离开检测"),
+
+	AddBGM UMETA(DisplayName = "添加BGM到等待列表"),
+	RemoveBGM UMETA(DisplayName = "从等待列表移除BGM"),
+	RemoveBGMFromCollision UMETA(DisplayName = "移除由该碰撞引起的BGM")
+
 };
 
 /*
@@ -50,7 +55,7 @@ public:
 	ESoundActionType SoundActionType = ESoundActionType::None;
 
 	//资源标记
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true, EditConditionHides, EditCondition = "SoundActionType == ESoundActionType::PushBGM || SoundActionType == ESoundActionType::Sound2D || SoundActionType == ESoundActionType::Sound3D"), Category = "Sound")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true, EditConditionHides, EditCondition = "SoundActionType == ESoundActionType::PushBGM || SoundActionType == ESoundActionType::Sound2D || SoundActionType == ESoundActionType::Sound3D || SoundActionType == ESoundActionType::AddBGM || SoundActionType == ESoundActionType::RemoveBGM"), Category = "Sound")
 	TArray<FResourceProperty_SoundAssetTag> ResourceProperty;
 
 	//在弹出BGM通道时使用
@@ -302,6 +307,9 @@ public:
 	TArray<UBGMChannel*> BGMChannel;
 	UPROPERTY()
 	TArray<UAudioComponent*> SoundComs;
+	//当前声音碰撞执行的Action
+	UPROPERTY()
+	FSoundCollisionAction CurSoundCollisionAction;
 
 	//根
 	UPROPERTY(BlueprintReadOnly, Category = "Shape")

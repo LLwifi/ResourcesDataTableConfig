@@ -200,7 +200,7 @@ void ASoundCollision::CheckCollision()
 		}
 	}
 
-	if (OnlyPassClassArray.Num() > 0)
+	if (OverlapAllActor.Num() > 0)
 	{
 		SoundActionArray(UseSoundCollisionAction);
 	}
@@ -390,10 +390,44 @@ void ASoundCollision::SoundAction(FSoundCollisionAction SoundCollisionAction)
 			}
 			break;
 		}
+		case ESoundActionType::AddBGM:
+		{
+			if (SoundSubsystem)
+			{
+				for (FResourceProperty_SoundAssetTag& SoundAssetTag : SoundCollisionAction.ResourceProperty)
+				{
+					SoundSubsystem->AddBGMToChannel(SoundAssetTag.RowName, SoundAssetTag.ResourceNameOrIndex);
+				}
+			}
+			break;
+		}
+		case ESoundActionType::RemoveBGM:
+		{
+			if (SoundSubsystem)
+			{
+				for (FResourceProperty_SoundAssetTag& SoundAssetTag : SoundCollisionAction.ResourceProperty)
+				{
+					SoundSubsystem->RemoveBGMToChannel(SoundAssetTag.RowName, SoundAssetTag.ResourceNameOrIndex);
+				}
+			}
+			break;
+		}
+		case ESoundActionType::RemoveBGMFromCollision:
+		{
+			if (SoundSubsystem)
+			{
+				for (FResourceProperty_SoundAssetTag& SoundAssetTag : CurSoundCollisionAction.ResourceProperty)
+				{
+					SoundSubsystem->RemoveBGMToChannel(SoundAssetTag.RowName, SoundAssetTag.ResourceNameOrIndex);
+				}
+			}
+			break;
+		}
 		default:
 			break;
 		}
 	}
+	CurSoundCollisionAction = SoundCollisionAction;
 }
 
 void ASoundCollision::SoundActionArray(TArray<FSoundCollisionAction> SoundCollisionActionArray)

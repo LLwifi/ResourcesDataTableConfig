@@ -767,6 +767,8 @@ public:
 		}
 	}
 
+	bool IsNull(){ return SoundBase.IsNull(); }
+
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	FName RowName;

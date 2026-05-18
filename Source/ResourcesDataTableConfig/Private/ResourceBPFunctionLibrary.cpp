@@ -3,6 +3,7 @@
 
 #include "ResourceBPFunctionLibrary.h"
 #include "Components/AudioComponent.h"
+#include "AudioDevice.h" // 用于获取 FAudioDeviceHandle
 
 FTransform UResourceBPFunctionLibrary::StringToTransform(FString StringValue)
 {
