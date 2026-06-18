@@ -4,6 +4,7 @@
 #include "ResourceBPFunctionLibrary.h"
 #include "Components/AudioComponent.h"
 #include "AudioDevice.h" // 用于获取 FAudioDeviceHandle
+#include "PhysicsEngine/PhysicsSettings.h"
 
 FTransform UResourceBPFunctionLibrary::StringToTransform(FString StringValue)
 {
@@ -333,5 +334,23 @@ bool UResourceBPFunctionLibrary::GetResourceFromString_Sound(FName RowName, FStr
 USoundWave* UResourceBPFunctionLibrary::GetSoundWaveFromParameters(FSoundParameters SoundParameters)
 {
 	return SoundParameters.GetSoundWaveFromParameter();
+}
+
+FName UResourceBPFunctionLibrary::GetPhysicalSurfaceName(EPhysicalSurface InType)
+{
+	FName PhysicalSurfaceName;
+	// 获取项目物理设置
+	const UPhysicsSettings* PhysicsSettings = UPhysicsSettings::Get();
+
+	// 遍历项目设置中定义的所有物理表面
+	for (const FPhysicalSurfaceName& Surface : PhysicsSettings->PhysicalSurfaces)
+	{
+		if (Surface.Type == InType)
+		{
+			// 找到了匹配的枚举，返回你自定义的名字
+			return Surface.Name;
+		}
+	}
+	return PhysicalSurfaceName;
 }
 

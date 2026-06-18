@@ -56,4 +56,6 @@ public:
 	UFUNCTION(BlueprintPure)
 	static USoundWave* GetSoundWaveFromParameters(FSoundParameters SoundParameters);
 
+	UFUNCTION(BlueprintPure)
+	static FName GetPhysicalSurfaceName(EPhysicalSurface InType);
 };
